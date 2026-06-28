@@ -24,6 +24,7 @@ class Conversation extends Equatable {
   final int? mentionCount;
   final bool? mentionMe;
   final String? peerUserId;
+  final List<String> memberUserIds;
 
   /// 对端已读位点（SDK `ext.peerReadSeq` / 回执事件累加），用于己方消息双勾回填。
   final int peerReadSeq;
@@ -46,6 +47,7 @@ class Conversation extends Equatable {
     this.mentionCount,
     this.mentionMe,
     this.peerUserId,
+    this.memberUserIds = const [],
     this.peerReadSeq = 0,
   });
 
@@ -79,6 +81,7 @@ class Conversation extends Equatable {
       mentionCount: _intOrNull(core, 'mentionCount'),
       mentionMe: _boolOrNull(core, 'mentionMe'),
       peerUserId: _stringOrNull(core, 'peerUserId'),
+      memberUserIds: _stringList(core, 'memberUserIds'),
       peerReadSeq: _int(core, 'peerReadSeq', 0),
     );
   }
@@ -102,6 +105,7 @@ class Conversation extends Equatable {
     mentionCount,
     mentionMe,
     peerUserId,
+    memberUserIds,
     peerReadSeq,
   ];
 
@@ -134,6 +138,7 @@ class Conversation extends Equatable {
     int? mentionCount,
     bool? mentionMe,
     String? peerUserId,
+    List<String>? memberUserIds,
     int? peerReadSeq,
   }) {
     return Conversation(
@@ -154,6 +159,7 @@ class Conversation extends Equatable {
       mentionCount: mentionCount ?? this.mentionCount,
       mentionMe: mentionMe ?? this.mentionMe,
       peerUserId: peerUserId ?? this.peerUserId,
+      memberUserIds: memberUserIds ?? this.memberUserIds,
       peerReadSeq: peerReadSeq ?? this.peerReadSeq,
     );
   }
@@ -225,5 +231,17 @@ class Conversation extends Equatable {
       if (normalized == 'false' || normalized == '0') return false;
     }
     return null;
+  }
+
+  static List<String> _stringList(Map<String, Object?> map, String key) {
+    final value = map[key];
+    if (value is Iterable) {
+      return value
+          .map((item) => item.toString().trim())
+          .where((item) => item.isNotEmpty)
+          .toSet()
+          .toList(growable: false);
+    }
+    return const [];
   }
 }

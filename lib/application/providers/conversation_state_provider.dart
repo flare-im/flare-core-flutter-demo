@@ -247,6 +247,8 @@ List<T> _applyIndexedDeltaOps<T>(
         final existing = indexByKey(key);
         if (existing >= 0) {
           next[existing] = item;
+        } else {
+          next.insert(boundedIndex(op.index), item);
         }
         break;
     }

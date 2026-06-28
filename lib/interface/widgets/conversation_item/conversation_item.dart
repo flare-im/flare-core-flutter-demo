@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flare_im/application/providers/auth_state_provider.dart';
 import 'package:flare_im/application/providers/conversation_state_provider.dart';
 import 'package:flare_im/application/providers/im_outbound_provider.dart';
 import 'package:flare_im/application/providers/locale_provider.dart';
@@ -64,205 +67,252 @@ class ConversationItem extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final titleText = _lineTitle(conversation);
     final messages = ref.watch(flareMessagesProvider);
+    final selected = ref.watch(
+      selectedConversationProvider.select(
+        (value) => value?.conversationId == conversation.conversationId,
+      ),
+    );
     final hasDraft =
         conversation.draft != null && conversation.draft!.isNotEmpty;
     final (pastelBg, pastelFg) = FlareImDesign.avatarPastelForKey(
       _pastelKey(conversation),
     );
+    void openConversation() {
+      unawaited(_openConversation(context, ref));
+    }
 
-    return Slidable(
-      key: ValueKey('conversation-${conversation.conversationId}'),
-      endActionPane: ActionPane(
-        motion: const DrawerMotion(),
-        extentRatio: 0.46,
-        children: [
-          SlidableAction(
-            onPressed: (_) => ref
-                .read(imOutboundProvider)
-                .conversationPin(
-                  conversation.conversationId,
-                  !conversation.isPinned,
-                ),
-            backgroundColor: FlareImDesign.brandPurple,
-            foregroundColor: Colors.white,
-            icon: conversation.isPinned
-                ? Icons.push_pin
-                : Icons.push_pin_outlined,
-            label: conversation.isPinned ? '取消置顶' : '置顶',
-          ),
-          SlidableAction(
-            onPressed: (_) => ref
-                .read(imOutboundProvider)
-                .conversationDelete(conversation.conversationId),
-            backgroundColor: FlareImDesign.destructive,
-            foregroundColor: Colors.white,
-            icon: Icons.delete_outline_rounded,
-            label: '删除',
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            ref.read(imOutboundProvider).conversationSetSelected(conversation);
-            navigateToChat(context, conversation.conversationId);
-          },
-          onLongPress: () => _showConversationMenu(context, ref),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 2),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    ClipOval(
-                      child:
-                          conversation.avatarUrl.isNotEmpty &&
-                              isHttpOrHttpsUrl(conversation.avatarUrl)
-                          ? CachedNetworkImage(
-                              imageUrl: conversation.avatarUrl,
-                              width: _avatarSize,
-                              height: _avatarSize,
-                              fit: BoxFit.cover,
-                              errorWidget: (context, url, error) =>
-                                  _avatarFallback(
-                                    titleText,
-                                    pastelBg,
-                                    pastelFg,
-                                  ),
-                            )
-                          : _avatarFallback(titleText, pastelBg, pastelFg),
-                    ),
-                    if (pinnedStyle && conversation.isPinned)
-                      Positioned(
-                        right: 0,
-                        bottom: 0,
-                        child: Container(
-                          width: 14,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            color: FlareImDesign.card,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: FlareImDesign.mobileDivider,
-                              width: 1.5,
+    return Semantics(
+      container: true,
+      button: true,
+      selected: selected,
+      label: _semanticsLabel(messages, titleText, selected: selected),
+      hint: '打开会话',
+      onTap: openConversation,
+      child: Slidable(
+        key: ValueKey('conversation-${conversation.conversationId}'),
+        endActionPane: ActionPane(
+          motion: const DrawerMotion(),
+          extentRatio: 0.46,
+          children: [
+            SlidableAction(
+              onPressed: (_) => ref
+                  .read(imOutboundProvider)
+                  .conversationPin(
+                    conversation.conversationId,
+                    !conversation.isPinned,
+                  ),
+              backgroundColor: FlareImDesign.brandPurple,
+              foregroundColor: Colors.white,
+              icon: conversation.isPinned
+                  ? Icons.push_pin
+                  : Icons.push_pin_outlined,
+              label: conversation.isPinned ? '取消置顶' : '置顶',
+            ),
+            SlidableAction(
+              onPressed: (_) => ref
+                  .read(imOutboundProvider)
+                  .conversationDelete(conversation.conversationId),
+              backgroundColor: FlareImDesign.destructive,
+              foregroundColor: Colors.white,
+              icon: Icons.delete_outline_rounded,
+              label: '删除',
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: openConversation,
+            onLongPress: () => _showConversationMenu(context, ref),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 2),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      ClipOval(
+                        child:
+                            conversation.avatarUrl.isNotEmpty &&
+                                isHttpOrHttpsUrl(conversation.avatarUrl)
+                            ? CachedNetworkImage(
+                                imageUrl: conversation.avatarUrl,
+                                width: _avatarSize,
+                                height: _avatarSize,
+                                fit: BoxFit.cover,
+                                errorWidget: (context, url, error) =>
+                                    _avatarFallback(
+                                      titleText,
+                                      pastelBg,
+                                      pastelFg,
+                                    ),
+                              )
+                            : _avatarFallback(titleText, pastelBg, pastelFg),
+                      ),
+                      if (pinnedStyle && conversation.isPinned)
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: FlareImDesign.card,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: FlareImDesign.mobileDivider,
+                                width: 1.5,
+                              ),
                             ),
-                          ),
-                          alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.push_pin,
-                            size: 9,
-                            color: FlareThemeTokens.conversationListPinLabel,
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.push_pin,
+                              size: 9,
+                              color: FlareThemeTokens.conversationListPinLabel,
+                            ),
                           ),
                         ),
-                      ),
-                  ],
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Row(
-                              children: [
-                                if (conversation.isPinned && !pinnedStyle)
-                                  const Padding(
-                                    padding: EdgeInsets.only(right: 4),
-                                    child: Icon(
-                                      Icons.push_pin_outlined,
-                                      size: 14,
-                                      color: FlareImDesign.mutedForeground,
+                    ],
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  if (conversation.isPinned && !pinnedStyle)
+                                    const Padding(
+                                      padding: EdgeInsets.only(right: 4),
+                                      child: Icon(
+                                        Icons.push_pin_outlined,
+                                        size: 14,
+                                        color: FlareImDesign.mutedForeground,
+                                      ),
+                                    ),
+                                  Expanded(
+                                    child: Text(
+                                      titleText,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: conversation.hasUnread
+                                            ? FontWeight.w700
+                                            : FontWeight.w600,
+                                        color: FlareThemeTokens.textPrimary,
+                                        height: 1.25,
+                                      ),
                                     ),
                                   ),
-                                Expanded(
-                                  child: Text(
-                                    titleText,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: conversation.hasUnread
-                                          ? FontWeight.w700
-                                          : FontWeight.w600,
-                                      color: FlareThemeTokens.textPrimary,
-                                      height: 1.25,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _formatTime(conversation.updatedAt),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: FlareImDesign.mutedForeground,
-                              fontFeatures: [FontFeature.tabularFigures()],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: _previewRichText(
-                              context,
-                              hasDraft: hasDraft,
-                              messages: messages,
-                            ),
-                          ),
-                          if (conversation.hasUnread) ...[
                             const SizedBox(width: 8),
-                            Container(
-                              constraints: const BoxConstraints(
-                                minWidth: 22,
-                                minHeight: 22,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                              ),
-                              decoration: BoxDecoration(
-                                color: FlareThemeTokens
-                                    .conversationListUnreadBadgeBg,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                conversation.unreadCount > 99
-                                    ? '99+'
-                                    : conversation.unreadCount.toString(),
-                                style: const TextStyle(
-                                  color: FlareThemeTokens
-                                      .conversationListUnreadBadgeFg,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  fontFeatures: [FontFeature.tabularFigures()],
-                                ),
+                            Text(
+                              _formatTime(conversation.updatedAt),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: FlareImDesign.mutedForeground,
+                                fontFeatures: [FontFeature.tabularFigures()],
                               ),
                             ),
                           ],
-                        ],
-                      ),
-                    ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: _previewRichText(
+                                context,
+                                hasDraft: hasDraft,
+                                messages: messages,
+                              ),
+                            ),
+                            if (conversation.hasUnread) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                constraints: const BoxConstraints(
+                                  minWidth: 22,
+                                  minHeight: 22,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: FlareThemeTokens
+                                      .conversationListUnreadBadgeBg,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  conversation.unreadCount > 99
+                                      ? '99+'
+                                      : conversation.unreadCount.toString(),
+                                  style: const TextStyle(
+                                    color: FlareThemeTokens
+                                        .conversationListUnreadBadgeFg,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    fontFeatures: [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  String _semanticsLabel(
+    FlareMessages messages,
+    String titleText, {
+    required bool selected,
+  }) {
+    final parts = <String>['会话 $titleText'];
+    if (selected) parts.add('已选中');
+    if (conversation.isPinned) parts.add('已置顶');
+    if (conversation.hasUnread) {
+      final count = conversation.unreadCount > 99
+          ? '99+'
+          : conversation.unreadCount.toString();
+      parts.add('未读 $count 条');
+    }
+    final preview = _semanticsPreview(messages);
+    if (preview.isNotEmpty) parts.add(preview);
+    return parts.join('，');
+  }
+
+  String _semanticsPreview(FlareMessages messages) {
+    final draft = conversation.draft?.trim();
+    if (draft != null && draft.isNotEmpty) {
+      return '${messages.conversation.draftPrefix}$draft';
+    }
+    final preview = formatStoragePreview(
+      conversation.lastMessagePreview ?? '',
+      locale: messages.locale.code,
+    ).trim();
+    if (preview.isNotEmpty) return preview;
+    return messages.conversation.noMessagePreview;
   }
 
   List<InlineSpan> _previewSpanChildren(
@@ -316,7 +366,9 @@ class ConversationItem extends ConsumerWidget {
         localeTag: messages.locale.code,
       );
     }
-    return [TextSpan(text: messages.conversation.noMessagePreview, style: baseStyle)];
+    return [
+      TextSpan(text: messages.conversation.noMessagePreview, style: baseStyle),
+    ];
   }
 
   Widget _previewRichText(
@@ -338,7 +390,8 @@ class ConversationItem extends ConsumerWidget {
     final children = mediaPreview == null
         ? _previewSpanChildren(context, baseStyle, messages)
         : const <InlineSpan>[];
-    final body = mediaPreview ??
+    final body =
+        mediaPreview ??
         Text.rich(
           TextSpan(style: baseStyle, children: children),
           maxLines: 1,
@@ -354,9 +407,7 @@ class ConversationItem extends ConsumerWidget {
             color: FlareImDesign.mutedForeground,
           ),
           const SizedBox(width: 4),
-          Expanded(
-            child: body,
-          ),
+          Expanded(child: body),
         ],
       );
     }
@@ -425,7 +476,12 @@ class ConversationItem extends ConsumerWidget {
         if (prefix.isNotEmpty)
           Flexible(
             flex: 0,
-            child: Text(prefix, maxLines: 1, overflow: TextOverflow.ellipsis, style: baseStyle),
+            child: Text(
+              prefix,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: baseStyle,
+            ),
           ),
         if (isSticker)
           _stickerPreviewThumb(stickerContent, messages)
@@ -466,10 +522,7 @@ class ConversationItem extends ConsumerWidget {
     );
   }
 
-  Widget _stickerPreviewThumb(
-    StickerContent? content,
-    FlareMessages messages,
-  ) {
+  Widget _stickerPreviewThumb(StickerContent? content, FlareMessages messages) {
     final assetPath = content == null
         ? null
         : PackAssetResolver.stickerAssetPath(
@@ -635,6 +688,77 @@ class ConversationItem extends ConsumerWidget {
     } else {
       return '${time.month}/${time.day}';
     }
+  }
+
+  Future<void> _openConversation(BuildContext context, WidgetRef ref) async {
+    final im = ref.read(imOutboundProvider);
+    var target = conversation;
+
+    if (conversation.conversationType == ConversationType.group) {
+      final memberIds = _memberIdsForCanonicalGroupOpen(ref, conversation);
+      if (memberIds.length >= 2) {
+        try {
+          final resolved = await im.conversationOpenGroupChat(
+            memberIds,
+            displayName: conversation.displayTitle,
+          );
+          final resolvedId = resolved?.conversationId.trim() ?? '';
+          if (resolved != null && resolvedId.isNotEmpty) {
+            target = resolved;
+          }
+        } catch (error, stackTrace) {
+          debugPrint(
+            'canonical group resolve failed '
+            'conversation=${conversation.conversationId}: $error\n$stackTrace',
+          );
+        }
+      }
+    }
+
+    if (!context.mounted) return;
+    im.conversationSetSelected(target);
+    navigateToChat(context, target.conversationId);
+  }
+
+  List<String> _memberIdsForCanonicalGroupOpen(
+    WidgetRef ref,
+    Conversation conversation,
+  ) {
+    final ids = <String>{
+      for (final id in conversation.memberUserIds)
+        if (id.trim().isNotEmpty) id.trim(),
+      ..._memberIdsFromDisplayText(conversation.displayName),
+      ..._memberIdsFromDisplayText(conversation.conversationId),
+    };
+    final self = ref.read(currentUserProvider)?.userId.trim() ?? '';
+    if (self.isNotEmpty) ids.add(self);
+    return ids.toList(growable: false)..sort();
+  }
+
+  Set<String> _memberIdsFromDisplayText(String value) {
+    final raw = value.trim();
+    if (raw.isEmpty) return const {};
+
+    var text = raw;
+    final usersMatch = RegExp(
+      r'users\s*[:：](.+)$',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (usersMatch != null) {
+      text = usersMatch.group(1) ?? '';
+    } else {
+      final parenMatch = RegExp(r'[（(]([^()（）]+)[）)]').firstMatch(text);
+      if (parenMatch != null) {
+        text = parenMatch.group(1) ?? '';
+      }
+    }
+
+    final parts = text
+        .split(RegExp(r'[\s,，、;；|/]+'))
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toSet();
+    return parts.length >= 2 ? parts : const {};
   }
 }
 

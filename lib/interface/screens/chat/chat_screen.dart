@@ -63,6 +63,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
   bool _isForeground = false;
   final Set<String> _subscribedPresenceUserIds = <String>{};
   final Set<String> _presenceQueriedUserIds = <String>{};
+  List<String>? _lastRenderedMessageKeys;
+  int _tailFollowGeneration = 0;
+  final Set<Timer> _tailFollowTimers = <Timer>{};
 
   /// 引用回复：列表稳定键 + 输入区展示用快照。
   String? _replyTargetMessageKey;
@@ -147,6 +150,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
       _replyQuoteSnapshot = null;
       _multiSelectMode = false;
       _multiSelectKeys.clear();
+      _lastRenderedMessageKeys = null;
     }
   }
 
@@ -193,18 +197,116 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
     _flushComposerDraftNow();
     appRouteObserver.unsubscribe(this);
     _setForeground(false);
+    _cancelTailFollowTimers();
     _scrollController.removeListener(_onScrollNearTop);
     _scrollController.dispose();
     super.dispose();
   }
 
-  /// `reverse: true` 时，大 offset 一端为更早消息；接近该端时加载上一页。
+  /// 正向时间线：offset 接近 0 时加载更早消息。
   void _onScrollNearTop() {
     if (!_scrollController.hasClients || _loadingOlder) return;
     final pos = _scrollController.position;
     if (!pos.hasPixels || pos.maxScrollExtent <= 0) return;
-    if (pos.pixels < pos.maxScrollExtent - 320) return;
+    if (!_isNearTimelineBottom()) {
+      _tailFollowGeneration += 1;
+    }
+    if (pos.pixels > 320) return;
     unawaited(_loadOlderPage());
+  }
+
+  bool _isNearTimelineBottom() {
+    if (!_scrollController.hasClients) return true;
+    final pos = _scrollController.position;
+    if (!pos.hasPixels) return true;
+    return (pos.maxScrollExtent - pos.pixels) <= 180;
+  }
+
+  void _scrollTimelineToBottom({bool animated = true}) {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    final target = pos.maxScrollExtent;
+    if ((target - pos.pixels).abs() < 1) return;
+    if (!animated) {
+      _scrollController.jumpTo(target);
+      return;
+    }
+    unawaited(
+      _scrollController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      ),
+    );
+  }
+
+  void _followTimelineTailIfNeeded(MessageListKeysSignal keysSignal) {
+    final nextKeys = keysSignal.orderedKeys;
+    final previousKeys = _lastRenderedMessageKeys;
+    final shouldFollow = _shouldFollowTimelineTail(previousKeys, nextKeys);
+    _lastRenderedMessageKeys = List<String>.of(nextKeys);
+    if (!shouldFollow) return;
+    _scheduleTimelineTailFollow(animated: previousKeys != null);
+  }
+
+  void _scheduleTimelineTailFollow({required bool animated}) {
+    _cancelTailFollowTimers();
+    final generation = ++_tailFollowGeneration;
+    void scroll({required bool animated}) {
+      if (!mounted) return;
+      if (generation != _tailFollowGeneration) return;
+      _scrollTimelineToBottom(animated: animated);
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      scroll(animated: animated);
+    });
+
+    for (final delay in const [
+      Duration(milliseconds: 80),
+      Duration(milliseconds: 180),
+      Duration(milliseconds: 420),
+      Duration(milliseconds: 760),
+    ]) {
+      late final Timer timer;
+      timer = Timer(delay, () {
+        _tailFollowTimers.remove(timer);
+        scroll(animated: false);
+      });
+      _tailFollowTimers.add(timer);
+    }
+  }
+
+  void _cancelTailFollowTimers() {
+    _tailFollowGeneration += 1;
+    for (final timer in _tailFollowTimers) {
+      timer.cancel();
+    }
+    _tailFollowTimers.clear();
+  }
+
+  bool _shouldFollowTimelineTail(
+    List<String>? previousKeys,
+    List<String> nextKeys,
+  ) {
+    if (nextKeys.isEmpty) return false;
+    if (previousKeys == null) return true;
+    if (previousKeys.isEmpty) return true;
+    final tailChanged = previousKeys.last != nextKeys.last;
+    final appendedAtTail =
+        nextKeys.length > previousKeys.length &&
+        nextKeys.length >= previousKeys.length &&
+        _hasSamePrefix(previousKeys, nextKeys);
+    if (!tailChanged && !appendedAtTail) return false;
+    return _isNearTimelineBottom();
+  }
+
+  bool _hasSamePrefix(List<String> prefix, List<String> list) {
+    if (prefix.length > list.length) return false;
+    for (var i = 0; i < prefix.length; i += 1) {
+      if (prefix[i] != list[i]) return false;
+    }
+    return true;
   }
 
   Future<void> _loadOlderPage() async {
@@ -1613,6 +1715,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
     final keysSignal = ref.watch(
       messageProvider(_cid).select(messageListKeysSignal),
     );
+    _followTimelineTailIfNeeded(keysSignal);
     final me = ref.watch(currentUserProvider)?.userId ?? '';
     final typingCount = ref.watch(
       typingProvider(_cid).select(
@@ -1911,7 +2014,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
                         )
                       : CustomScrollView(
                           controller: _scrollController,
-                          reverse: true,
                           physics: const AlwaysScrollableScrollPhysics(),
                           slivers: [
                             SliverPadding(

@@ -75,6 +75,7 @@ class SdkModelMapper {
       'mentionCount': c.mentionCount,
       'mentionMe': c.mentionMe,
       'peerUserId': _resolveCorePeerUserId(c),
+      'memberUserIds': _resolveCoreMemberUserIds(c),
       'peerReadSeq': _peerReadSeqFromCoreConversation(c),
     }, lastMessage: lastMsg);
   }
@@ -323,6 +324,16 @@ class SdkModelMapper {
       if (t.isNotEmpty) return t;
     }
     return null;
+  }
+
+  static List<String> _resolveCoreMemberUserIds(core.Conversation c) {
+    final ids = <String>{
+      for (final participant in c.participants)
+        if (participant.userId.trim().isNotEmpty) participant.userId.trim(),
+      for (final participant in c.memberPreview)
+        if (participant.userId.trim().isNotEmpty) participant.userId.trim(),
+    };
+    return ids.toList(growable: false)..sort();
   }
 
   static int _peerReadSeqFromCoreConversation(core.Conversation c) {

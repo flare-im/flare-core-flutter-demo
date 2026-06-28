@@ -353,6 +353,32 @@ class QuoteContent extends MessageContent {
   ];
 }
 
+/// 话题回复（与 SDK `thread` / `create_thread_reply` 对齐）。
+class ThreadReplyContent extends MessageContent {
+  final String threadId;
+  final String text;
+  final String? rootMessageId;
+
+  const ThreadReplyContent({
+    required this.threadId,
+    required this.text,
+    this.rootMessageId,
+  });
+
+  @override
+  String get previewText {
+    final t = text.trim();
+    if (t.isNotEmpty) return '[话题] $t';
+    return '[话题]';
+  }
+
+  @override
+  String get contentType => 'thread';
+
+  @override
+  List<Object?> get props => [threadId, text, rootMessageId];
+}
+
 /// 合并转发中的单条快照（与 proto `ForwardItem` / SDK `items[]` 对应）。
 class ForwardSnapshotItem extends Equatable {
   final String? sourceMessageId;

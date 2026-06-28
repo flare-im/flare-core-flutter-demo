@@ -5,14 +5,14 @@ import 'package:flare_im/domain/value_objects/message_content.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('shows avatar on newest item of a contiguous sender group', () {
+  test('shows avatar on newest bottom item of a contiguous sender group', () {
     final messages = [
-      _message('m3', 'bob', 3),
-      _message('m2', 'bob', 2),
       _message('m1', 'bob', 1),
+      _message('m2', 'bob', 2),
+      _message('m3', 'bob', 3),
     ];
 
-    final newest = messageRowViewModelForKey(
+    final oldest = messageRowViewModelForKey(
       messages,
       stableMessageListKey(messages[0]),
     );
@@ -20,7 +20,7 @@ void main() {
       messages,
       stableMessageListKey(messages[1]),
     );
-    final oldest = messageRowViewModelForKey(
+    final newest = messageRowViewModelForKey(
       messages,
       stableMessageListKey(messages[2]),
     );

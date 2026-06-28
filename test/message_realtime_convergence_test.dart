@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flare_core_flutter_sdk/flare_core_flutter_sdk.dart' as core;
 import 'package:flare_im/application/bus/event_bus.dart';
 import 'package:flare_im/application/providers/conversation_state_provider.dart';
@@ -100,7 +102,60 @@ void main() {
     expect(conversations.single.lastMessagePreview, 'delta-new');
   });
 
-  test('core timeline delta inserts latest message immediately', () {
+  test(
+    'core conversation update delta inserts a previously unseen conversation',
+    () {
+      final container = ProviderContainer(
+        overrides: [
+          conversationRepositoryProvider.overrideWithValue(
+            _UnusedConversationRepository(),
+          ),
+          messageRepositoryProvider.overrideWithValue(
+            _UnusedMessageRepository(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(conversationProvider.notifier);
+      notifier.applyCoreSnapshot([
+        _conversation(
+          'old-group',
+          updatedAtMs: 1000,
+          lastMessage: _message('old-group', 1, 'old', timestampMs: 1000),
+        ),
+      ]);
+
+      notifier.applyCoreDelta([
+        CoreViewDeltaOp(
+          op: 'update',
+          key: 'web-active-group',
+          index: 0,
+          item: _conversation(
+            'web-active-group',
+            updatedAtMs: 8000,
+            unreadCount: 1,
+            lastMessage: _message(
+              'web-active-group',
+              8,
+              'hello from web group',
+              timestampMs: 8000,
+            ),
+          ),
+        ),
+      ]);
+
+      final conversations = container.read(conversationProvider);
+      expect(conversations.map((c) => c.conversationId), [
+        'web-active-group',
+        'old-group',
+      ]);
+      expect(conversations.first.lastMessagePreview, 'hello from web group');
+      expect(conversations.first.unreadCount, 1);
+    },
+  );
+
+  test('core timeline delta inserts latest message at the display tail', () {
     final container = ProviderContainer(
       overrides: [
         conversationRepositoryProvider.overrideWithValue(
@@ -132,7 +187,7 @@ void main() {
     ]);
 
     final messages = container.read(messageProvider('c1'));
-    expect(messages.map((m) => m.content.previewText), ['delta-new', 'old']);
+    expect(messages.map((m) => m.content.previewText), ['old', 'delta-new']);
   });
 
   test('timeline load is replaced by the latest core snapshot', () async {
@@ -182,14 +237,17 @@ void main() {
       container
           .read(conversationProvider.notifier)
           .upsert(_conversation('c1', updatedAtMs: 1000));
+      container.read(messageProvider('c1').notifier).applyCoreSnapshot([
+        _message('c1', 1, 'old', timestampMs: 1000, timelineKey: 'seq:1'),
+      ]);
 
       await container.read(messageProvider('c1').notifier).sendText('sent-now');
 
       final messages = container.read(messageProvider('c1'));
       final conversations = container.read(conversationProvider);
-      expect(messages.single.content.previewText, 'sent-now');
-      expect(messages.single.seq, 42);
-      expect(messages.single.serverId, 'server-sent');
+      expect(messages.map((m) => m.content.previewText), ['old', 'sent-now']);
+      expect(messages.last.seq, 42);
+      expect(messages.last.serverId, 'server-sent');
       expect(conversations.single.lastMessagePreview, isNull);
       expect(conversations.single.lastMessage, isNull);
       expect(conversations.single.unreadCount, 0);
@@ -220,7 +278,58 @@ void main() {
     },
   );
 
-  test('core timeline snapshot preserves core order', () {
+  test(
+    'self send inserts a local pending row before sdk build completes',
+    () async {
+      final repo = _DelayedTextMessageRepository();
+      final container = ProviderContainer(
+        overrides: [
+          conversationRepositoryProvider.overrideWithValue(
+            _UnusedConversationRepository(),
+          ),
+          messageRepositoryProvider.overrideWithValue(repo),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container
+          .read(conversationProvider.notifier)
+          .upsert(_conversation('c1', updatedAtMs: 1000));
+      container.read(messageProvider('c1').notifier).applyCoreSnapshot([
+        _message('c1', 1, 'old', timestampMs: 1000, timelineKey: 'seq:1'),
+      ]);
+
+      final sendFuture = container
+          .read(messageProvider('c1').notifier)
+          .sendText('instant');
+
+      final pendingMessages = container.read(messageProvider('c1'));
+      expect(pendingMessages.map((m) => m.content.previewText), [
+        'old',
+        'instant',
+      ]);
+      expect(pendingMessages.last.status, MessageStatus.sending);
+      expect(pendingMessages.last.source, MessageSource.local);
+      expect(pendingMessages.last.clientMsgId, startsWith('local:'));
+      expect(repo.sentMessages, isEmpty);
+
+      repo.completeCreate();
+      await sendFuture;
+
+      final sentMessages = container.read(messageProvider('c1'));
+      expect(sentMessages.map((m) => m.content.previewText), [
+        'old',
+        'instant',
+      ]);
+      expect(sentMessages.last.clientMsgId, 'client-delayed');
+      expect(sentMessages.last.serverId, 'server-delayed');
+      expect(sentMessages.last.seq, 43);
+      expect(sentMessages.last.status, MessageStatus.sent);
+      expect(repo.sentMessages.single.clientMsgId, 'client-delayed');
+    },
+  );
+
+  test('core timeline snapshot normalizes to display order', () {
     final container = ProviderContainer(
       overrides: [
         conversationRepositoryProvider.overrideWithValue(
@@ -232,13 +341,13 @@ void main() {
     addTearDown(container.dispose);
 
     container.read(messageProvider('c1').notifier).applyCoreSnapshot([
-      _message('c1', 1, 'first-from-core', timestampMs: 9000),
-      _message('c1', 9, 'second-from-core', timestampMs: 1000),
+      _message('c1', 9, 'newer-from-core', timestampMs: 9000),
+      _message('c1', 1, 'older-from-core', timestampMs: 1000),
     ]);
 
     expect(
       container.read(messageProvider('c1')).map((m) => m.content.previewText),
-      ['first-from-core', 'second-from-core'],
+      ['older-from-core', 'newer-from-core'],
     );
   });
 }
@@ -360,6 +469,68 @@ final class _SendingMessageRepository implements IMessageRepository {
       'serverMsgId': 'server-sent',
       'conversationId': message.conversationId,
       'conversationSeq': 42,
+    };
+    onSuccess?.call(ack);
+    return ack;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _DelayedTextMessageRepository implements IMessageRepository {
+  final Completer<core.Message> _createCompleter = Completer<core.Message>();
+  final List<core.Message> sentMessages = [];
+
+  String? _conversationId;
+  String? _text;
+
+  @override
+  Future<core.Message> createTextMessage(String conversationId, String text) {
+    _conversationId = conversationId;
+    _text = text;
+    return _createCompleter.future;
+  }
+
+  void completeCreate() {
+    if (_createCompleter.isCompleted) return;
+    final conversationId = _conversationId ?? 'c1';
+    final text = _text ?? 'instant';
+    _createCompleter.complete(
+      core.Message(
+        serverId: '',
+        clientMsgId: 'client-delayed',
+        conversationId: conversationId,
+        conversationSeq: 0,
+        createdAt: 7100,
+        clientCreatedAt: 7100,
+        messageType: 1,
+        source: 2,
+        status: 0,
+        timelineKey: 'client:client-delayed',
+        timelineSortTs: 7100,
+        content: core.MessageContent(
+          contentType: core.MessageContentType.text,
+          data: {'text': text},
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> sendCoreMessage(
+    core.Message message, {
+    MessageSendEventCallback? onProgress,
+    MessageSendEventCallback? onSuccess,
+    MessageSendEventCallback? onFailure,
+  }) async {
+    sentMessages.add(message);
+    final ack = <String, dynamic>{
+      'success': true,
+      'clientMsgId': message.clientMsgId,
+      'serverMsgId': 'server-delayed',
+      'conversationId': message.conversationId,
+      'conversationSeq': 43,
     };
     onSuccess?.call(ack);
     return ack;

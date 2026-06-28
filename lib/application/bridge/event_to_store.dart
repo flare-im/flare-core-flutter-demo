@@ -5,10 +5,13 @@ import 'package:flare_im/application/bus/event_bus.dart';
 import 'package:flare_im/application/providers/active_chat_stack_provider.dart';
 import 'package:flare_im/application/providers/auth_state_provider.dart';
 import 'package:flare_im/application/providers/conversation_state_provider.dart';
+import 'package:flare_im/application/providers/im_outbound_provider.dart';
 import 'package:flare_im/application/providers/im_sync_state_provider.dart';
 import 'package:flare_im/application/providers/message_state_provider.dart';
 import 'package:flare_im/application/providers/sdk_provider.dart';
 import 'package:flare_im/application/providers/sdk_runtime_status_provider.dart';
+import 'package:flare_im/domain/entities/conversation.dart';
+import 'package:flare_im/domain/entities/message.dart';
 import 'package:flare_im/infrastructure/mappers/sdk_model_mapper.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,7 +29,17 @@ class ImEventToStoreBridge extends ConsumerStatefulWidget {
 
 class _ImEventToStoreBridgeState extends ConsumerState<ImEventToStoreBridge>
     with WidgetsBindingObserver {
+  static const _foregroundTimelineRefreshMinInterval = Duration(
+    milliseconds: 1500,
+  );
+  static const _foregroundMarkReadMinInterval = Duration(seconds: 5);
+  static const _foregroundMarkReadTimeout = Duration(seconds: 3);
+
   final List<StreamSubscription<dynamic>> _subs = [];
+  final Set<String> _foregroundTimelineRefreshInFlight = {};
+  final Set<String> _foregroundMarkReadInFlight = {};
+  final Map<String, DateTime> _lastForegroundTimelineRefreshAt = {};
+  final Map<String, DateTime> _lastForegroundMarkReadAt = {};
   String? _lastLoadedUserId;
 
   @override
@@ -138,6 +151,7 @@ class _ImEventToStoreBridgeState extends ConsumerState<ImEventToStoreBridge>
     ref
         .read(sdkRuntimeStatusProvider.notifier)
         .markReady(conversationCount: ref.read(conversationProvider).length);
+    _refreshForegroundTimelineForConversationDelta(e.ops);
   }
 
   void _onTimelineViewSnapshot(TimelineViewSnapshotEvent e) {
@@ -160,19 +174,37 @@ class _ImEventToStoreBridgeState extends ConsumerState<ImEventToStoreBridge>
   }
 
   void _onIncomingMessages(IncomingMessagesEvent e) {
-    final conversationIds = <String>{};
+    final messagesByConversationId = <String, List<Message>>{};
     for (final message in e.messages) {
       final cid = message.conversationId.trim();
       if (cid.isEmpty) continue;
-      conversationIds.add(cid);
+      messagesByConversationId.putIfAbsent(cid, () => <Message>[]).add(message);
     }
-    final fg = ref.read(foregroundChatConversationIdProvider)?.trim() ?? '';
-    for (final cid in conversationIds) {
+    final fg = _currentOpenConversationId();
+    final activeConversationIds = ref
+        .read(activeChatStackProvider)
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    if (fg.isNotEmpty) {
+      activeConversationIds.add(fg);
+    }
+    for (final entry in messagesByConversationId.entries) {
+      final cid = entry.key;
+      if (cid == fg || activeConversationIds.contains(cid)) {
+        ref
+            .read(messageProvider(cid).notifier)
+            .mergeIncomingMessages(entry.value);
+      }
+      if (cid == fg) {
+        _refreshForegroundTimeline(cid, force: true);
+      }
       _markForegroundConversationReadIfVisible(cid);
     }
-    if (conversationIds.isNotEmpty) {
+    if (messagesByConversationId.isNotEmpty) {
       debugPrint(
-        'flare app incoming_messages cids=${conversationIds.join(',')} '
+        'flare app incoming_messages '
+        'cids=${messagesByConversationId.keys.join(',')} '
         'foreground=$fg',
       );
     }
@@ -181,6 +213,45 @@ class _ImEventToStoreBridgeState extends ConsumerState<ImEventToStoreBridge>
   void _onConversationUpdate(ConversationUpdateEvent e) {
     debugPrint(
       'flare app conversation_update cid=${e.conversationId?.trim() ?? 'all'}',
+    );
+  }
+
+  void _refreshForegroundTimelineForConversationDelta(
+    List<CoreViewDeltaOp<Conversation>> ops,
+  ) {
+    final foreground = _currentOpenConversationId();
+    if (foreground.isEmpty || ops.isEmpty) return;
+    final touchedForeground = ops.any((op) {
+      final itemId = op.item?.conversationId.trim() ?? '';
+      final key = op.key.trim();
+      return itemId == foreground || key == foreground;
+    });
+    if (!touchedForeground) return;
+    _refreshForegroundTimeline(foreground);
+  }
+
+  void _refreshForegroundTimeline(String conversationId, {bool force = false}) {
+    final cid = conversationId.trim();
+    if (cid.isEmpty) return;
+    if (_foregroundTimelineRefreshInFlight.contains(cid)) return;
+    final now = DateTime.now();
+    final lastRefreshAt = _lastForegroundTimelineRefreshAt[cid];
+    final recentlyRefreshed =
+        lastRefreshAt != null &&
+        now.difference(lastRefreshAt) < _foregroundTimelineRefreshMinInterval;
+    if (!force && recentlyRefreshed) return;
+    _lastForegroundTimelineRefreshAt[cid] = now;
+    _foregroundTimelineRefreshInFlight.add(cid);
+    unawaited(
+      ref
+          .read(imOutboundProvider)
+          .chatPullServer(cid)
+          .catchError((Object error, StackTrace stackTrace) {
+            debugPrint(
+              'foreground timeline refresh failed ($cid): $error\n$stackTrace',
+            );
+          })
+          .whenComplete(() => _foregroundTimelineRefreshInFlight.remove(cid)),
     );
   }
 
@@ -320,9 +391,38 @@ class _ImEventToStoreBridgeState extends ConsumerState<ImEventToStoreBridge>
   void _markForegroundConversationReadIfVisible(String conversationId) {
     final cid = conversationId.trim();
     if (cid.isEmpty) return;
-    final fg = ref.read(foregroundChatConversationIdProvider)?.trim() ?? '';
+    final fg = _currentOpenConversationId();
     if (fg != cid) return;
-    unawaited(ref.read(messageProvider(cid).notifier).markFullyReadAtTop());
+    if (_foregroundMarkReadInFlight.contains(cid)) return;
+    final now = DateTime.now();
+    final lastMarkAt = _lastForegroundMarkReadAt[cid];
+    if (lastMarkAt != null &&
+        now.difference(lastMarkAt) < _foregroundMarkReadMinInterval) {
+      ref.read(conversationProvider.notifier).applyUnreadPatch(cid, 0);
+      return;
+    }
+    _lastForegroundMarkReadAt[cid] = now;
+    _foregroundMarkReadInFlight.add(cid);
+    unawaited(
+      ref
+          .read(messageProvider(cid).notifier)
+          .markFullyReadAtTop()
+          .timeout(_foregroundMarkReadTimeout)
+          .catchError((Object error, StackTrace stackTrace) {
+            debugPrint(
+              'foreground mark read failed ($cid): $error\n$stackTrace',
+            );
+            ref.read(conversationProvider.notifier).applyUnreadPatch(cid, 0);
+          })
+          .whenComplete(() => _foregroundMarkReadInFlight.remove(cid)),
+    );
+  }
+
+  String _currentOpenConversationId() {
+    final foreground =
+        ref.read(foregroundChatConversationIdProvider)?.trim() ?? '';
+    if (foreground.isNotEmpty) return foreground;
+    return ref.read(selectedConversationProvider)?.conversationId.trim() ?? '';
   }
 
   Future<void> _setHeartbeatAppState(core.HeartbeatAppState appState) async {

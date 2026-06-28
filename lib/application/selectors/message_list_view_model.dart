@@ -34,17 +34,17 @@ MessageRowViewModel? messageRowViewModelForKey(
   final i = list.indexWhere((m) => stableMessageListKey(m) == messageKey);
   if (i < 0) return null;
   final message = list[i];
-  final isNewestInList = i == 0;
-  final isOldestInList = i == list.length - 1;
-  // The timeline stores newest messages first and renders with reverse:true.
+  final isNewestInList = i == list.length - 1;
+  final isOldestInList = i == 0;
+  // The timeline stores display order: oldest -> newest.
   // Show sender identity on the newest/bottom item of each contiguous group.
-  final showAvatar = isNewestInList || list[i - 1].senderId != message.senderId;
-  // 最末一条（列表里最旧）没有「下一条」可比较时间间隔，仅显示时间条
+  final showAvatar = isNewestInList || list[i + 1].senderId != message.senderId;
+  // 第一条（列表里最旧）没有上一条可比较时间间隔，显示时间条。
   final showTime = isOldestInList
       ? true
       : _shouldShowFeishuStyleTimeDivider(
           newer: message.timestamp,
-          older: list[i + 1].timestamp,
+          older: list[i - 1].timestamp,
           isOldestInList: false,
         );
   return MessageRowViewModel(

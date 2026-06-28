@@ -38,6 +38,10 @@ class WorkbenchShell extends ConsumerWidget {
     final chatId = _chatIdFromLocation(location);
     final detailsOpen = ref.watch(workbenchDetailsOpenProvider);
     final i18n = ref.watch(flareMessagesProvider);
+    final rawTextScale = MediaQuery.textScalerOf(context).scale(1);
+    final emptyStateTextScaler = TextScaler.linear(
+      rawTextScale.clamp(1.0, 1.25).toDouble(),
+    );
 
     return Row(
       children: [
@@ -52,36 +56,49 @@ class WorkbenchShell extends ConsumerWidget {
               : ColoredBox(
                   color: FlareImDesign.mobileCanvas,
                   child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.chat_bubble_outline_rounded,
-                            size: 56,
-                            color: FlareImDesign.brandPurple.withValues(
-                              alpha: 0.5,
-                            ),
+                    child: MediaQuery(
+                      data: MediaQuery.of(
+                        context,
+                      ).copyWith(textScaler: emptyStateTextScaler),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 360),
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.chat_bubble_outline_rounded,
+                                size: 56,
+                                color: FlareImDesign.brandPurple.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                i18n.chat.selectTitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                i18n.chat.selectHint,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: FlareImDesign.mutedForeground,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 16),
-                          Text(
-                            i18n.chat.selectTitle,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            i18n.chat.selectHint,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: FlareImDesign.mutedForeground,
-                              height: 1.4,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),

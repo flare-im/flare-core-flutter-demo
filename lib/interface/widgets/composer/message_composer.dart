@@ -8,6 +8,7 @@ import 'package:flare_im/interface/widgets/composer/composer_models.dart';
 import 'package:flare_im/interface/widgets/composer/composer_reply_strip.dart';
 import 'package:flare_im/interface/widgets/composer/composer_sheets.dart';
 import 'package:flare_im/interface/widgets/composer/draft_idle_scheduler.dart';
+import 'package:flare_im/interface/widgets/composer/rich_text_composer_formatter.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -71,6 +72,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
 
   /// 富文本模式（Aa）；作为持久输入模式，发送后保留。
   bool _richTextEnabled = false;
+  RichComposerFormatting _richFormatting = const RichComposerFormatting();
 
   /// 圆形「+」下方的内联功能宫格（4×2）；与 [showComposerAttachSheet] 并存，「全部附件」进 Sheet。
   bool _moreGridOpen = false;
@@ -300,126 +302,14 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
   void _toggleRichText() {
     _closeMoreGrid();
     if (widget.disabled) return;
-    setState(() => _richTextEnabled = !_richTextEnabled);
+    setState(() {
+      _richTextEnabled = !_richTextEnabled;
+      if (!_richTextEnabled) {
+        _richFormatting = const RichComposerFormatting();
+      }
+    });
     if (_richTextEnabled) {
       _focusNode.requestFocus();
-    }
-  }
-
-  Future<void> _openRichDocSheet() async {
-    final editor = TextEditingController(text: _controller.text);
-    var selected = ChatRichDocInputFormat.markdown;
-    try {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        showDragHandle: true,
-        backgroundColor: FlareThemeTokens.bgPrimary,
-        builder: (sheetContext) {
-          return StatefulBuilder(
-            builder: (context, setSheetState) {
-              final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-              void sendRichDoc() {
-                final source = editor.text.trim();
-                if (source.isEmpty) return;
-                _cancelPendingDraftSave();
-                ref
-                    .read(chatOutboundProvider(widget.conversationId).notifier)
-                    .dispatch(
-                      ChatOutboundSendRichDoc(format: selected, source: source),
-                    );
-                _typingIdleTimer?.cancel();
-                _setTyping(false);
-                _controller.clear();
-                widget.onDraftChanged?.call('');
-                if (mounted) setState(() {});
-                Navigator.of(sheetContext).pop();
-                _focusNode.unfocus();
-              }
-
-              return Padding(
-                padding: EdgeInsets.fromLTRB(16, 0, 16, bottomInset + 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            '发送富文本',
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                              color: FlareThemeTokens.textPrimary,
-                            ),
-                          ),
-                        ),
-                        SegmentedButton<ChatRichDocInputFormat>(
-                          segments: const [
-                            ButtonSegment(
-                              value: ChatRichDocInputFormat.markdown,
-                              label: Text('Markdown'),
-                            ),
-                            ButtonSegment(
-                              value: ChatRichDocInputFormat.html,
-                              label: Text('HTML'),
-                            ),
-                          ],
-                          selected: {selected},
-                          showSelectedIcon: false,
-                          onSelectionChanged: (next) {
-                            setSheetState(() => selected = next.first);
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: editor,
-                      autofocus: true,
-                      minLines: 8,
-                      maxLines: 12,
-                      textInputAction: TextInputAction.newline,
-                      keyboardType: TextInputType.multiline,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        height: 1.32,
-                        color: FlareThemeTokens.textPrimary,
-                      ),
-                      decoration: InputDecoration(
-                        labelText: selected == ChatRichDocInputFormat.markdown
-                            ? 'Markdown'
-                            : 'HTML',
-                        hintText: selected == ChatRichDocInputFormat.markdown
-                            ? '# 标题\n正文'
-                            : '<h1>标题</h1><p>正文</p>',
-                        filled: true,
-                        fillColor: FlareThemeTokens.bgSecondary,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                            color: FlareThemeTokens.borderSecondary,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton.icon(
-                      onPressed: sendRichDoc,
-                      icon: const Icon(Icons.send_rounded),
-                      label: const Text('发送'),
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      );
-    } finally {
-      editor.dispose();
     }
   }
 
@@ -449,7 +339,15 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
     ref
         .read(chatOutboundProvider(widget.conversationId).notifier)
         .dispatch(
-          _richTextEnabled || PlainTextMarkdownDetect.isMarkdown(t)
+          _richTextEnabled
+              ? ChatOutboundSendRichDoc(
+                  format: ChatRichDocInputFormat.markdown,
+                  source: RichComposerMarkdownSerializer.serialize(
+                    t,
+                    _richFormatting,
+                  ),
+                )
+              : PlainTextMarkdownDetect.isMarkdown(t)
               ? ChatOutboundSendRichDoc(
                   format: ChatRichDocInputFormat.markdown,
                   source: t,
@@ -462,52 +360,54 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
     _focusNode.unfocus();
   }
 
-  void _wrapSelection(String before, String after, String fallback) {
+  void _toggleInlineStyle(RichComposerInlineStyle style) {
     if (widget.disabled) return;
-    final value = _controller.value;
-    final text = value.text;
-    final selection = value.selection;
-    final start = selection.start >= 0 ? selection.start : text.length;
-    final end = selection.end >= 0 ? selection.end : text.length;
-    final selected = text.substring(start, end);
-    final inner = selected.isEmpty ? fallback : selected;
-    final next = text.replaceRange(start, end, '$before$inner$after');
-    if (widget.maxLength != null && next.length > widget.maxLength!) return;
-    final innerStart = start + before.length;
-    _controller.value = TextEditingValue(
-      text: next,
-      selection: TextSelection(
-        baseOffset: innerStart,
-        extentOffset: innerStart + inner.length,
-      ),
-    );
-    _onTextChanged(next);
+    setState(() {
+      _richFormatting = _richFormatting.toggleInline(style);
+    });
     _focusNode.requestFocus();
   }
 
-  void _prefixSelection(String prefix) {
+  void _toggleBlockStyle(RichComposerBlockStyle style) {
     if (widget.disabled) return;
-    final value = _controller.value;
-    final text = value.text;
-    final selection = value.selection;
-    final start = selection.start >= 0 ? selection.start : text.length;
-    final end = selection.end >= 0 ? selection.end : text.length;
-    final lineStart = text.lastIndexOf('\n', start > 0 ? start - 1 : 0) + 1;
-    final next = text.replaceRange(
-      lineStart,
-      end,
-      '$prefix${text.substring(lineStart, end)}',
-    );
-    if (widget.maxLength != null && next.length > widget.maxLength!) return;
-    _controller.value = TextEditingValue(
-      text: next,
-      selection: TextSelection(
-        baseOffset: start + prefix.length,
-        extentOffset: end + prefix.length,
-      ),
-    );
-    _onTextChanged(next);
+    setState(() {
+      _richFormatting = _richFormatting.toggleBlock(style);
+    });
     _focusNode.requestFocus();
+  }
+
+  TextStyle _inputTextStyle() {
+    final inline = _richFormatting.inlineStyles;
+    return TextStyle(
+      fontSize: _richFormatting.blockStyle == RichComposerBlockStyle.heading
+          ? 17
+          : 15,
+      height: 1.45,
+      color: inline.contains(RichComposerInlineStyle.link)
+          ? FlareThemeTokens.primary
+          : FlareThemeTokens.textPrimary,
+      fontWeight:
+          inline.contains(RichComposerInlineStyle.bold) ||
+              _richFormatting.blockStyle == RichComposerBlockStyle.heading
+          ? FontWeight.w700
+          : FontWeight.w400,
+      fontStyle: inline.contains(RichComposerInlineStyle.italic)
+          ? FontStyle.italic
+          : FontStyle.normal,
+      decoration:
+          inline.contains(RichComposerInlineStyle.strike) ||
+              inline.contains(RichComposerInlineStyle.link)
+          ? TextDecoration.combine([
+              if (inline.contains(RichComposerInlineStyle.strike))
+                TextDecoration.lineThrough,
+              if (inline.contains(RichComposerInlineStyle.link))
+                TextDecoration.underline,
+            ])
+          : TextDecoration.none,
+      fontFamily: inline.contains(RichComposerInlineStyle.inlineCode)
+          ? 'Menlo'
+          : null,
+    );
   }
 
   /// 上行：[ComposerInlineTextField] + 框内右侧「展开」。
@@ -536,6 +436,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
         enabled: !widget.disabled,
         keyboardType: TextInputType.multiline,
         textInputAction: TextInputAction.send,
+        style: _richTextEnabled ? _inputTextStyle() : null,
         specialTextSpanBuilder:
             _richTextEnabled ||
                 PlainTextMarkdownDetect.isMarkdown(_controller.text)
@@ -557,29 +458,72 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
   }
 
   Widget _formatChip({
-    required String label,
+    required Widget child,
     required String tooltip,
+    required bool selected,
     required VoidCallback onPressed,
   }) {
+    final foreground = selected
+        ? FlareThemeTokens.primary
+        : FlareThemeTokens.textSecondary;
+    final background = selected
+        ? FlareThemeTokens.bgSelected
+        : FlareThemeTokens.bgPrimary;
     return Tooltip(
       message: tooltip,
-      child: OutlinedButton(
-        onPressed: widget.disabled ? null : onPressed,
-        style: OutlinedButton.styleFrom(
-          minimumSize: const Size(34, 30),
-          padding: const EdgeInsets.symmetric(horizontal: 9),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          visualDensity: VisualDensity.compact,
-          foregroundColor: FlareThemeTokens.textSecondary,
-          side: BorderSide(
-            color: FlareThemeTokens.borderSecondary.withValues(alpha: 0.82),
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: tooltip,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: widget.disabled ? null : onPressed,
+            borderRadius: BorderRadius.circular(15),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 140),
+              width: 30,
+              height: 30,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: widget.disabled
+                    ? background.withValues(alpha: 0.42)
+                    : background,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected
+                      ? FlareThemeTokens.primary.withValues(alpha: 0.18)
+                      : FlareThemeTokens.borderSecondary.withValues(
+                          alpha: 0.62,
+                        ),
+                  width: 0.5,
+                ),
+              ),
+              child: IconTheme.merge(
+                data: IconThemeData(color: foreground, size: 15),
+                child: DefaultTextStyle.merge(
+                  style: TextStyle(
+                    color: foreground,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    height: 1,
+                  ),
+                  child: child,
+                ),
+              ),
+            ),
           ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
-        child: Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-        ),
+      ),
+    );
+  }
+
+  Widget _formatText(String value, {bool italic = false, bool strike = false}) {
+    return Text(
+      value,
+      style: TextStyle(
+        fontStyle: italic ? FontStyle.italic : FontStyle.normal,
+        decoration: strike ? TextDecoration.lineThrough : TextDecoration.none,
       ),
     );
   }
@@ -597,51 +541,104 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
                 child: Row(
                   children: [
                     _formatChip(
-                      label: 'B',
+                      child: _formatText('Aa'),
+                      tooltip: '标题',
+                      selected: _richFormatting.isBlockActive(
+                        RichComposerBlockStyle.heading,
+                      ),
+                      onPressed: () =>
+                          _toggleBlockStyle(RichComposerBlockStyle.heading),
+                    ),
+                    const SizedBox(width: 6),
+                    _formatChip(
+                      child: _formatText('B'),
                       tooltip: '加粗',
-                      onPressed: () => _wrapSelection('**', '**', '加粗'),
+                      selected: _richFormatting.isInlineActive(
+                        RichComposerInlineStyle.bold,
+                      ),
+                      onPressed: () =>
+                          _toggleInlineStyle(RichComposerInlineStyle.bold),
                     ),
                     const SizedBox(width: 6),
                     _formatChip(
-                      label: 'I',
+                      child: _formatText('S', strike: true),
+                      tooltip: '删除线',
+                      selected: _richFormatting.isInlineActive(
+                        RichComposerInlineStyle.strike,
+                      ),
+                      onPressed: () =>
+                          _toggleInlineStyle(RichComposerInlineStyle.strike),
+                    ),
+                    const SizedBox(width: 6),
+                    _formatChip(
+                      child: _formatText('I', italic: true),
                       tooltip: '斜体',
-                      onPressed: () => _wrapSelection('*', '*', '斜体'),
+                      selected: _richFormatting.isInlineActive(
+                        RichComposerInlineStyle.italic,
+                      ),
+                      onPressed: () =>
+                          _toggleInlineStyle(RichComposerInlineStyle.italic),
                     ),
                     const SizedBox(width: 6),
                     _formatChip(
-                      label: '1.',
-                      tooltip: '有序列表',
-                      onPressed: () => _prefixSelection('1. '),
-                    ),
-                    const SizedBox(width: 6),
-                    _formatChip(
-                      label: '•',
+                      child: const Icon(Icons.format_list_bulleted_rounded),
                       tooltip: '无序列表',
-                      onPressed: () => _prefixSelection('- '),
+                      selected: _richFormatting.isBlockActive(
+                        RichComposerBlockStyle.bulletList,
+                      ),
+                      onPressed: () =>
+                          _toggleBlockStyle(RichComposerBlockStyle.bulletList),
                     ),
                     const SizedBox(width: 6),
                     _formatChip(
-                      label: '“',
+                      child: const Icon(Icons.format_list_numbered_rounded),
+                      tooltip: '有序列表',
+                      selected: _richFormatting.isBlockActive(
+                        RichComposerBlockStyle.orderedList,
+                      ),
+                      onPressed: () =>
+                          _toggleBlockStyle(RichComposerBlockStyle.orderedList),
+                    ),
+                    const SizedBox(width: 6),
+                    _formatChip(
+                      child: const Icon(Icons.format_quote_rounded),
                       tooltip: '引用',
-                      onPressed: () => _prefixSelection('> '),
+                      selected: _richFormatting.isBlockActive(
+                        RichComposerBlockStyle.quote,
+                      ),
+                      onPressed: () =>
+                          _toggleBlockStyle(RichComposerBlockStyle.quote),
                     ),
                     const SizedBox(width: 6),
                     _formatChip(
-                      label: '↗',
+                      child: const Icon(Icons.code_rounded),
+                      tooltip: '代码块',
+                      selected: _richFormatting.isBlockActive(
+                        RichComposerBlockStyle.codeBlock,
+                      ),
+                      onPressed: () =>
+                          _toggleBlockStyle(RichComposerBlockStyle.codeBlock),
+                    ),
+                    const SizedBox(width: 6),
+                    _formatChip(
+                      child: _formatText('{}'),
+                      tooltip: '行内代码',
+                      selected: _richFormatting.isInlineActive(
+                        RichComposerInlineStyle.inlineCode,
+                      ),
+                      onPressed: () => _toggleInlineStyle(
+                        RichComposerInlineStyle.inlineCode,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    _formatChip(
+                      child: const Icon(Icons.link_rounded),
                       tooltip: '链接',
-                      onPressed: () => _wrapSelection('[', '](https://)', '链接'),
-                    ),
-                    const SizedBox(width: 6),
-                    _formatChip(
-                      label: '{}',
-                      tooltip: '代码',
-                      onPressed: () => _wrapSelection('`', '`', 'code'),
-                    ),
-                    const SizedBox(width: 6),
-                    _formatChip(
-                      label: '↕',
-                      tooltip: '编辑器',
-                      onPressed: () => unawaited(_openRichDocSheet()),
+                      selected: _richFormatting.isInlineActive(
+                        RichComposerInlineStyle.link,
+                      ),
+                      onPressed: () =>
+                          _toggleInlineStyle(RichComposerInlineStyle.link),
                     ),
                   ],
                 ),

@@ -128,7 +128,7 @@ void main() {
     );
   });
 
-  testWidgets('incoming foreground message marks the latest seq read', (
+  testWidgets('incoming foreground message inserts into active timeline', (
     tester,
   ) async {
     final conversationRepo = _ReloadConversationRepository([
@@ -160,7 +160,7 @@ void main() {
         );
     container.read(activeChatStackProvider.notifier).push('c1');
     container.read(messageProvider('c1').notifier).applyCoreSnapshot([
-      _message('c1', 12, 'foreground', timestampMs: 6000),
+      _message('c1', 11, 'before', timestampMs: 5000),
     ]);
 
     await tester.pumpWidget(
@@ -180,7 +180,67 @@ void main() {
 
     expect(conversationRepo.markAsReadConversationId, 'c1');
     expect(conversationRepo.markAsReadSeq, 12);
+    expect(
+      container.read(messageProvider('c1')).map((m) => m.content.previewText),
+      ['before', 'foreground'],
+    );
     expect(container.read(conversationProvider).single.unreadCount, 0);
+  });
+
+  testWidgets('incoming selected desktop conversation updates timeline', (
+    tester,
+  ) async {
+    final conversationRepo = _ReloadConversationRepository([
+      _conversation(
+        'c1',
+        updatedAtMs: 7000,
+        unreadCount: 0,
+        lastMessage: _message('c1', 12, 'desktop-new', timestampMs: 7000),
+      ),
+    ]);
+    final container = ProviderContainer(
+      overrides: [
+        conversationRepositoryProvider.overrideWithValue(conversationRepo),
+        messageRepositoryProvider.overrideWithValue(
+          _RecordingMessageRepository(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final selected = _conversation(
+      'c1',
+      updatedAtMs: 1000,
+      unreadCount: 5,
+      lastMessage: _message('c1', 1, 'old', timestampMs: 1000),
+    );
+    container.read(conversationProvider.notifier).upsert(selected);
+    container.read(selectedConversationProvider.notifier).state = selected;
+    container.read(messageProvider('c1').notifier).applyCoreSnapshot([
+      _message('c1', 11, 'before', timestampMs: 5000),
+    ]);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const ImEventToStoreBridge(child: SizedBox.shrink()),
+      ),
+    );
+
+    imEventBus.fire(
+      IncomingMessagesEvent([
+        _message('c1', 12, 'desktop-new', timestampMs: 7000),
+      ]),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      container.read(messageProvider('c1')).map((m) => m.content.previewText),
+      ['before', 'desktop-new'],
+    );
+    expect(conversationRepo.markAsReadConversationId, 'c1');
+    expect(conversationRepo.markAsReadSeq, 12);
   });
 
   testWidgets('incoming background message waits for core view deltas', (

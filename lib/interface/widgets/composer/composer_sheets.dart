@@ -165,6 +165,7 @@ class _ComposerEmojiStickerPanelState
   List<String> _recentKeys = [];
   TextEditingController? _ownedDraftController;
   FocusNode? _ownedDraftFocus;
+  bool _sharedDraftRefreshScheduled = false;
 
   int get _packageCount => widget.onPickSticker == null
       ? 0
@@ -182,7 +183,12 @@ class _ComposerEmojiStickerPanelState
       widget.panelDraftController ?? _ownedDraftController!;
 
   void _onSharedDraftControllerChanged() {
-    if (mounted) setState(() {});
+    if (!mounted || _sharedDraftRefreshScheduled) return;
+    _sharedDraftRefreshScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _sharedDraftRefreshScheduled = false;
+      if (mounted) setState(() {});
+    });
   }
 
   @override

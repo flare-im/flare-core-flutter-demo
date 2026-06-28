@@ -57,6 +57,7 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
   final Map<String, Timer> _ackSmoothTimers = {};
   Timer? _ackSmoothResetTimer;
   int _ackSmoothSlot = 0;
+  int _localPendingCounter = 0;
 
   @override
   void dispose() {
@@ -114,19 +115,47 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
     if (scopedOps.isEmpty) return;
     state = _normalizeCallSignalNotices(
       _reapplyPeerReadToMessages(
-        _applyIndexedDeltaOps<Message>(
-          state,
-          scopedOps,
-          (item) => item.timelineKey.trim(),
+        _timelineDisplayOrder(
+          _applyIndexedDeltaOps<Message>(
+            state,
+            scopedOps,
+            (item) => item.timelineKey.trim(),
+          ),
         ),
       ),
     );
     _cancelResolvedSendTracking();
   }
 
+  void mergeIncomingMessages(List<Message> incoming) {
+    if (incoming.isEmpty) return;
+    final scoped = incoming
+        .where((message) => message.conversationId.trim() == conversationId)
+        .toList(growable: false);
+    if (scoped.isEmpty) return;
+
+    final next = List<Message>.from(state);
+    for (final message in scoped) {
+      final existingIndex = _incomingMessageIndex(next, message);
+      if (existingIndex >= 0) {
+        next[existingIndex] = _mergeServerMessage(next[existingIndex], message);
+      } else {
+        next.add(message);
+      }
+    }
+
+    state = _normalizeCallSignalNotices(
+      _reapplyPeerReadToMessages(_timelineDisplayOrder(next)),
+    );
+    _cancelResolvedSendTracking();
+  }
+
   /// 下行同步 + 重新拉取本地列表（`IMClient::sync_messages`）
   Future<void> refreshFromServer({int limit = 50}) async {
-    final lastSeq = state.isNotEmpty ? state.first.seq : 0;
+    final lastSeq = state.fold<int>(
+      0,
+      (current, message) => message.seq > current ? message.seq : current,
+    );
     await _messageService.syncMessages(
       conversationId: conversationId,
       lastSeq: lastSeq,
@@ -160,9 +189,9 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
 
   Future<void> loadMore({int limit = 50}) async {
     if (state.isEmpty) return;
-    // 列表末尾若为 seq==0（发送中等），不能用 0 作为游标（SDK 会把 0 当成首屏）。
+    // state 是展示顺序：旧 -> 新。翻页要从最旧的已落库 seq 往前拉。
     var beforeSeq = 0;
-    for (final m in state.reversed) {
+    for (final m in state) {
       if (m.seq > 0) {
         beforeSeq = m.seq;
         break;
@@ -189,7 +218,9 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
     }
     if (olderPage.isEmpty) return;
     state = _normalizeCallSignalNotices(
-      _reapplyPeerReadToMessages([...state, ...olderPage]),
+      _reapplyPeerReadToMessages(
+        _timelineDisplayOrder([...olderPage, ...state]),
+      ),
     );
     _cancelResolvedSendTracking();
   }
@@ -211,6 +242,12 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
 
+    final pending = _createLocalTextPending(trimmed);
+    state = _normalizeCallSignalNotices(
+      _reapplyPeerReadToMessages(_withPendingMessage(state, pending)),
+    );
+    _watchSendTimeout(pending.clientMsgId);
+
     late final CreatedSdkMessage created;
     try {
       final buildConversationId = await _conversationIdForMessageBuild();
@@ -220,16 +257,24 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
       );
     } catch (error, stackTrace) {
       _logBuildException('sendText.build', error, stackTrace);
+      _applySendFailure(pending.clientMsgId, {'reason': error.toString()});
       return;
     }
+
+    final pendingStillSending = state.any(
+      (m) =>
+          m.clientMsgId == pending.clientMsgId &&
+          m.status == MessageStatus.sending,
+    );
+    if (!pendingStillSending) return;
+
     var optimistic = created.message;
     final me = _ref.read(currentUserProvider)?.userId ?? '';
     if (me.isNotEmpty && optimistic.senderId.isEmpty) {
       optimistic = optimistic.copyWith(senderId: me);
     }
-    state = _normalizeCallSignalNotices(
-      _reapplyPeerReadToMessages(_withPendingMessage(state, optimistic)),
-    );
+    _replacePendingMessage(pending.clientMsgId, optimistic);
+    _cancelSendTimeout(pending.clientMsgId);
     _watchSendTimeout(optimistic.clientMsgId);
 
     try {
@@ -238,6 +283,9 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
         clientMsgId: optimistic.clientMsgId,
       );
       // C 层 `flare_message_send` 与 dispatch `send` 一致：返回 SendAck 对象（曾错误地传裸 clientMsgId 导致 jsonDecode 失败 -> 误判失败）。
+      if (_isQueuedSendAck(ack)) {
+        return;
+      }
       if (ack['success'] == false) {
         _applySendFailure(optimistic.clientMsgId, ack);
         return;
@@ -247,6 +295,57 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
       _logSendException('sendText', optimistic.clientMsgId, error, stackTrace);
       _applySendFailure(optimistic.clientMsgId, {'reason': error.toString()});
     }
+  }
+
+  Message _createLocalTextPending(String text) {
+    final now = DateTime.now();
+    final user = _ref.read(currentUserProvider);
+    final senderId = user?.userId.trim() ?? '';
+    final displayName = (user?.displayName.trim().isNotEmpty ?? false)
+        ? user!.displayName.trim()
+        : senderId;
+    final clientMsgId =
+        'local:${now.microsecondsSinceEpoch}:${_localPendingCounter++}';
+    return Message(
+      serverId: '',
+      clientMsgId: clientMsgId,
+      conversationId: conversationId,
+      senderId: senderId,
+      seq: 0,
+      timestamp: now,
+      clientTimestamp: now,
+      content: TextContent(text),
+      status: MessageStatus.sending,
+      source: MessageSource.local,
+      timelineKey: 'client:$clientMsgId',
+      senderName: displayName,
+      senderAvatar: user?.avatar ?? '',
+      senderDisplayName: displayName,
+    );
+  }
+
+  void _replacePendingMessage(String pendingClientMsgId, Message replacement) {
+    final pendingId = pendingClientMsgId.trim();
+    if (pendingId.isEmpty) {
+      state = _normalizeCallSignalNotices(
+        _reapplyPeerReadToMessages(_withPendingMessage(state, replacement)),
+      );
+      return;
+    }
+
+    var replaced = false;
+    final next = state.map((m) {
+      if (m.clientMsgId != pendingId) return m;
+      replaced = true;
+      return replacement;
+    }).toList();
+    state = _normalizeCallSignalNotices(
+      _reapplyPeerReadToMessages(
+        replaced
+            ? _timelineDisplayOrder(next)
+            : _withPendingMessage(state, replacement),
+      ),
+    );
   }
 
   Future<String> _conversationIdForMessageBuild() async {
@@ -302,6 +401,9 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
         sdkMessage: created.sdkMessage,
         clientMsgId: optimistic.clientMsgId,
       );
+      if (_isQueuedSendAck(ack)) {
+        return;
+      }
       if (ack['success'] == false) {
         _applySendFailure(optimistic.clientMsgId, ack);
         return;
@@ -568,7 +670,7 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
     final replacement = optimistic.copyWith(status: MessageStatus.sending);
     final next = List<Message>.from(state);
     next[idx] = replacement;
-    state = next;
+    state = _timelineDisplayOrder(next);
     _watchSendTimeout(replacement.clientMsgId);
 
     try {
@@ -702,16 +804,18 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
     final current = (progress['current'] as num?)?.toInt() ?? 0;
     final total = (progress['total'] as num?)?.toInt() ?? 0;
     final percentage = total > 0 ? (current / total).clamp(0.0, 1.0) : 0.0;
-    state = state.map((m) {
-      if (m.clientMsgId != id) return m;
-      return m.copyWith(
-        localUpload: LocalUploadState(
-          current: current,
-          total: total,
-          percentage: percentage,
-        ),
-      );
-    }).toList();
+    state = _timelineDisplayOrder(
+      state.map((m) {
+        if (m.clientMsgId != id) return m;
+        return m.copyWith(
+          localUpload: LocalUploadState(
+            current: current,
+            total: total,
+            percentage: percentage,
+          ),
+        );
+      }).toList(),
+    );
   }
 
   void _applySendFailure(String clientMsgId, Map<String, dynamic> failure) {
@@ -721,19 +825,21 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
     _cancelSmoothAck(id);
     final reason = _sendFailureReason(failure);
     _logSendFailure(id, failure, reason: reason);
-    state = state.map((m) {
-      if (m.clientMsgId != id) return m;
-      final previous = m.localUpload;
-      return m.copyWith(
-        status: MessageStatus.failed,
-        localUpload: LocalUploadState(
-          current: previous?.current ?? 0,
-          total: previous?.total ?? 0,
-          percentage: previous?.percentage ?? 0,
-          error: reason.isEmpty ? 'send_failed' : reason,
-        ),
-      );
-    }).toList();
+    state = _timelineDisplayOrder(
+      state.map((m) {
+        if (m.clientMsgId != id) return m;
+        final previous = m.localUpload;
+        return m.copyWith(
+          status: MessageStatus.failed,
+          localUpload: LocalUploadState(
+            current: previous?.current ?? 0,
+            total: previous?.total ?? 0,
+            percentage: previous?.percentage ?? 0,
+            error: reason.isEmpty ? 'send_failed' : reason,
+          ),
+        );
+      }).toList(),
+    );
   }
 
   Future<Map<String, dynamic>> _sendPreparedWithTransientRetry({
@@ -831,6 +937,7 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
   }
 
   void applySendAck(Map<String, dynamic> ack) {
+    if (_isQueuedSendAck(ack)) return;
     final cid = ack['conversationId'] as String?;
     if (cid != null && cid != conversationId) return;
     final clientId = ack['clientMsgId'] as String?;
@@ -863,6 +970,38 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
     });
   }
 
+  bool _isQueuedSendAck(Map<String, dynamic> ack) {
+    final cid = ack['conversationId']?.toString().trim() ?? '';
+    if (cid.isNotEmpty && cid != conversationId) return false;
+    final clientId = ack['clientMsgId']?.toString().trim() ?? '';
+    if (clientId.isEmpty) return false;
+    final serverId =
+        (ack['serverMsgId'] ?? ack['serverId'])?.toString().trim() ?? '';
+    final seq =
+        (ack['conversationSeq'] as num?)?.toInt() ??
+        (ack['seq'] as num?)?.toInt() ??
+        0;
+    if (serverId.isNotEmpty || seq > 0) return false;
+    if (ack['success'] == false) {
+      final raw = _safeJsonForLog(ack).toLowerCase();
+      final error = ack['error'];
+      final errorHasReason =
+          error is Map &&
+          ((error['code']?.toString().trim().isNotEmpty ?? false) ||
+              (error['message']?.toString().trim().isNotEmpty ?? false));
+      final errorCode = (ack['errorCode'] as num?)?.toInt() ?? 0;
+      final hasFailureReason =
+          (ack['reason']?.toString().trim().isNotEmpty ?? false) ||
+          (ack['message']?.toString().trim().isNotEmpty ?? false) ||
+          (ack['code']?.toString().trim().isNotEmpty ?? false) ||
+          errorHasReason ||
+          errorCode != 0;
+      if (raw.contains('missing send ack result')) return true;
+      return !hasFailureReason;
+    }
+    return true;
+  }
+
   void _applySendAckNow(Map<String, dynamic> ack) {
     final clientId = ack['clientMsgId'] as String?;
     final serverId = (ack['serverMsgId'] as String?)?.trim();
@@ -886,22 +1025,24 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
     }
 
     Message? updatedMessage;
-    state = state.map((m) {
-      if (!matchesRow(m)) return m;
-      if (explicitFailure) {
-        updatedMessage = m.copyWith(status: MessageStatus.failed);
+    state = _timelineDisplayOrder(
+      state.map((m) {
+        if (!matchesRow(m)) return m;
+        if (explicitFailure) {
+          updatedMessage = m.copyWith(status: MessageStatus.failed);
+          return updatedMessage!;
+        }
+        updatedMessage = m.copyWith(
+          serverId: (serverId != null && serverId.isNotEmpty)
+              ? serverId
+              : m.serverId,
+          seq: seq ?? m.seq,
+          clientMsgId: clientTrim.isNotEmpty ? clientTrim : m.clientMsgId,
+          status: MessageStatus.sent,
+        );
         return updatedMessage!;
-      }
-      updatedMessage = m.copyWith(
-        serverId: (serverId != null && serverId.isNotEmpty)
-            ? serverId
-            : m.serverId,
-        seq: seq ?? m.seq,
-        clientMsgId: clientTrim.isNotEmpty ? clientTrim : m.clientMsgId,
-        status: MessageStatus.sent,
-      );
-      return updatedMessage!;
-    }).toList();
+      }).toList(),
+    );
   }
 
   Future<void> recall(String messageId) async {
@@ -1064,9 +1205,11 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
 }
 
 List<Message> _coreMessageSnapshot(List<Message> incoming) {
-  return incoming
-      .where((message) => message.conversationId.trim().isNotEmpty)
-      .toList(growable: false);
+  return _timelineDisplayOrder(
+    incoming
+        .where((message) => message.conversationId.trim().isNotEmpty)
+        .toList(growable: false),
+  );
 }
 
 List<Message> _withPendingMessage(List<Message> current, Message pending) {
@@ -1078,10 +1221,115 @@ List<Message> _withPendingMessage(List<Message> current, Message pending) {
     if (existingIndex >= 0) {
       final next = List<Message>.from(current);
       next[existingIndex] = pending;
-      return next;
+      return _timelineDisplayOrder(next);
     }
   }
-  return [pending, ...current];
+  return _timelineDisplayOrder([...current, pending]);
+}
+
+int _incomingMessageIndex(List<Message> current, Message incoming) {
+  final serverId = incoming.serverId.trim();
+  if (serverId.isNotEmpty) {
+    final index = current.indexWhere((m) => m.serverId.trim() == serverId);
+    if (index >= 0) return index;
+  }
+
+  final clientMsgId = incoming.clientMsgId.trim();
+  if (clientMsgId.isNotEmpty) {
+    final index = current.indexWhere(
+      (m) => m.clientMsgId.trim() == clientMsgId,
+    );
+    if (index >= 0) return index;
+  }
+
+  final timelineKey = incoming.timelineKey.trim();
+  if (timelineKey.isNotEmpty) {
+    final index = current.indexWhere(
+      (m) => m.timelineKey.trim() == timelineKey,
+    );
+    if (index >= 0) return index;
+  }
+
+  final seq = incoming.seq;
+  if (seq > 0) {
+    final index = current.indexWhere((m) => m.seq == seq);
+    if (index >= 0) return index;
+  }
+
+  return -1;
+}
+
+Message _mergeServerMessage(Message existing, Message incoming) {
+  return incoming.copyWith(
+    isRead: incoming.isRead || existing.isRead,
+    reactions: incoming.reactions ?? existing.reactions,
+    localUpload: incoming.localUpload ?? existing.localUpload,
+  );
+}
+
+List<Message> _timelineDisplayOrder(List<Message> messages) {
+  final next = List<Message>.from(messages);
+  next.sort(_compareMessagesForTimelineAsc);
+  return next;
+}
+
+int _compareMessagesForTimelineAsc(Message left, Message right) {
+  final leftSeq = left.seq;
+  final rightSeq = right.seq;
+  if (leftSeq > 0 && rightSeq > 0) {
+    return _compareInts(leftSeq, rightSeq) ??
+        _compareDateTimes(left.timestamp, right.timestamp) ??
+        _compareTimelineKeys(left, right);
+  }
+
+  final leftPending = _isLocalPendingForTimeline(left);
+  final rightPending = _isLocalPendingForTimeline(right);
+  if (leftPending != rightPending && (leftSeq > 0 || rightSeq > 0)) {
+    return leftPending ? 1 : -1;
+  }
+
+  return _compareDateTimes(_timelineSortTime(left), _timelineSortTime(right)) ??
+      _compareInts(leftSeq, rightSeq) ??
+      _compareTimelineKeys(left, right);
+}
+
+bool _isLocalPendingForTimeline(Message message) {
+  return message.seq == 0 &&
+      message.source == MessageSource.local &&
+      message.status == MessageStatus.sending;
+}
+
+DateTime _timelineSortTime(Message message) {
+  if (message.seq > 0) return message.timestamp;
+  return message.clientTimestamp.isAfter(message.timestamp)
+      ? message.clientTimestamp
+      : message.timestamp;
+}
+
+int? _compareInts(int left, int right) {
+  final value = left.compareTo(right);
+  return value == 0 ? null : value;
+}
+
+int? _compareDateTimes(DateTime left, DateTime right) {
+  final value = left.compareTo(right);
+  return value == 0 ? null : value;
+}
+
+int _compareTimelineKeys(Message left, Message right) {
+  final leftKey = stableTimelineSortKey(left);
+  final rightKey = stableTimelineSortKey(right);
+  return leftKey.compareTo(rightKey);
+}
+
+String stableTimelineSortKey(Message message) {
+  final timeline = message.timelineKey.trim();
+  if (timeline.isNotEmpty) return timeline;
+  final server = message.serverId.trim();
+  if (server.isNotEmpty) return 's:$server';
+  final client = message.clientMsgId.trim();
+  if (client.isNotEmpty) return 'c:$client';
+  return 't:${message.timestamp.millisecondsSinceEpoch}:${message.senderId}';
 }
 
 List<T> _applyIndexedDeltaOps<T>(

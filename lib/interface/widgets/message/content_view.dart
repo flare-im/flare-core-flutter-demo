@@ -172,6 +172,14 @@ class ContentView extends StatelessWidget {
           messageStatus: isSelf ? messageStatus : null,
           footerTimeText: mediaFooterTimeText,
         );
+      case ThreadReplyContent(:final text):
+        final displayText = text.trim();
+        return TextView(
+          text: displayText.isNotEmpty ? '[话题] $displayText' : '[话题]',
+          isSelf: isSelf,
+          messageStatus: isSelf ? messageStatus : null,
+          bubbleFooter: bubbleFooter,
+        );
       case ForwardContent(:final forwardTitle, :final items):
         return ForwardView(
           forwardTitle: forwardTitle,

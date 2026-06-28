@@ -288,6 +288,25 @@ class SdkMessageContentMapper {
           quotedSenderName: _optionalTrimmedString(content['quotedSenderName']),
           quotedSenderId: _optionalTrimmedString(content['quotedSenderId']),
         );
+      case 'thread':
+        final data = _asMap(content['data']);
+        final nested = _asMap(content['thread']);
+        final attributes = _asObjectMap(messageJson['attributes']);
+        final threadId = _prefer([
+          _str(content['threadId']),
+          _str(data?['threadId']),
+          _str(nested?['threadId']),
+        ]);
+        final text = _prefer([
+          _str(content['text']),
+          _str(data?['text']),
+          _str(nested?['text']),
+          _str(content['threadTitle']),
+          _str(data?['threadTitle']),
+          _str(nested?['threadTitle']),
+          _str(attributes?['contentText']),
+        ]);
+        return ThreadReplyContent(threadId: threadId, text: text);
       case 'placeholder':
         final fb = _optionalTrimmedString(content['fallbackText']);
         return PlaceholderMessageContent(
@@ -374,6 +393,8 @@ class SdkMessageContentMapper {
 
   static Map<String, dynamic>? _asMap(dynamic v) =>
       v is Map<String, dynamic> ? v : null;
+
+  static Map<dynamic, dynamic>? _asObjectMap(dynamic v) => v is Map ? v : null;
 
   static String _str(dynamic v) => v is String ? v : '';
 

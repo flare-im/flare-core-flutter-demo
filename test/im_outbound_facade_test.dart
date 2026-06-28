@@ -6,12 +6,14 @@ import 'package:flare_im/application/providers/message_state_provider.dart';
 import 'package:flare_im/application/providers/sdk_runtime_status_provider.dart';
 import 'package:flare_im/application/providers/service_providers.dart';
 import 'package:flare_im/domain/entities/conversation.dart';
+import 'package:flare_im/domain/entities/message.dart';
 import 'package:flare_im/domain/entities/user.dart';
 import 'package:flare_im/domain/repositories/i_auth_repository.dart';
 import 'package:flare_im/domain/repositories/i_conversation_repository.dart';
 import 'package:flare_im/domain/repositories/i_message_repository.dart';
 import 'package:flare_im/domain/value_objects/conversation_filter.dart';
 import 'package:flare_im/domain/value_objects/conversation_type.dart';
+import 'package:flare_im/domain/value_objects/message_content.dart';
 import 'package:flare_im/domain/value_objects/transport_mode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -133,9 +135,43 @@ void main() {
       );
     },
   );
+
+  test('chatPullServerAndMarkRead tolerates mark read failures', () async {
+    final conversation = _conversation('c1', unreadCount: 7);
+    final conversationRepo = _FakeConversationRepository(
+      listResult: [conversation],
+      bootstrapResult: [conversation],
+      failMarkAsRead: true,
+    );
+    final messageRepo = _FakeMessageRepository(
+      messages: [_message('c1', seq: 12)],
+    );
+    final container = ProviderContainer(
+      overrides: [
+        conversationRepositoryProvider.overrideWithValue(conversationRepo),
+        messageRepositoryProvider.overrideWithValue(messageRepo),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    container.read(conversationProvider.notifier).upsert(conversation);
+
+    await container
+        .read(imOutboundProvider)
+        .chatPullServerAndMarkRead(conversation.conversationId);
+
+    expect(messageRepo.syncCalls, 1);
+    expect(conversationRepo.markAsReadCalls, 1);
+    expect(conversationRepo.markAsReadSeqs, [12]);
+    expect(container.read(conversationProvider).single.unreadCount, 0);
+  });
 }
 
-Conversation _conversation(String id, {String? peerUserId}) {
+Conversation _conversation(
+  String id, {
+  String? peerUserId,
+  int unreadCount = 0,
+}) {
   final now = DateTime.fromMillisecondsSinceEpoch(1000);
   return Conversation(
     conversationId: id,
@@ -145,6 +181,26 @@ Conversation _conversation(String id, {String? peerUserId}) {
     updatedAt: now,
     createdAt: now,
     peerUserId: peerUserId,
+    unreadCount: unreadCount,
+  );
+}
+
+Message _message(String conversationId, {required int seq}) {
+  final now = DateTime.fromMillisecondsSinceEpoch(seq * 1000);
+  return Message(
+    serverId: 's$seq',
+    clientMsgId: 'c$seq',
+    conversationId: conversationId,
+    senderId: 'u2',
+    seq: seq,
+    timestamp: now,
+    clientTimestamp: now,
+    content: const TextContent('hello'),
+    status: MessageStatus.sent,
+    source: MessageSource.remote,
+    senderName: 'u2',
+    senderAvatar: '',
+    senderDisplayName: 'u2',
   );
 }
 
@@ -193,13 +249,17 @@ final class _FakeConversationRepository implements IConversationRepository {
     required this.listResult,
     required this.bootstrapResult,
     this.getOneResult,
+    this.failMarkAsRead = false,
   });
 
   final List<Conversation> listResult;
   final List<Conversation> bootstrapResult;
   final Conversation? getOneResult;
+  final bool failMarkAsRead;
   int listCalls = 0;
   int bootstrapCalls = 0;
+  int markAsReadCalls = 0;
+  final List<int> markAsReadSeqs = [];
   final List<String> getOneSources = [];
   final List<ConversationType> getOneTypes = [];
 
@@ -240,12 +300,45 @@ final class _FakeConversationRepository implements IConversationRepository {
   }
 
   @override
+  Future<void> markAsRead(String conversationId, int readSeq) async {
+    markAsReadCalls += 1;
+    markAsReadSeqs.add(readSeq);
+    if (failMarkAsRead) {
+      throw StateError('mark read failed');
+    }
+  }
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 final class _FakeMessageRepository implements IMessageRepository {
+  _FakeMessageRepository({this.messages = const []});
+
+  final List<Message> messages;
   String? createdTextConversationId;
   core.Message? sentCoreMessage;
+  int syncCalls = 0;
+
+  @override
+  Future<List<Message>> getMessages({
+    required String conversationId,
+    int? beforeSeq,
+    required int limit,
+  }) async {
+    return messages
+        .where((message) => message.conversationId == conversationId)
+        .toList();
+  }
+
+  @override
+  Future<void> syncMessages({
+    required String conversationId,
+    int lastSeq = 0,
+    int limit = 50,
+  }) async {
+    syncCalls += 1;
+  }
 
   @override
   Future<core.Message> createTextMessage(

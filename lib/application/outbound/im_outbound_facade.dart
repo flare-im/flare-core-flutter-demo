@@ -24,6 +24,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 class ImOutboundFacade {
   ImOutboundFacade(this._ref);
 
+  static const _chatMessageSyncTimeout = Duration(seconds: 4);
+  static const _chatMarkReadTimeout = Duration(seconds: 3);
+
   final Ref _ref;
 
   bool get authSdkInitialized =>
@@ -205,7 +208,8 @@ class ImOutboundFacade {
     final cid = conversationId.trim();
     final m = _messages(cid);
     await _openTimelineView(cid, reason: 'chat_enter');
-    await m.markFullyReadAtTop();
+    await _syncTimelineFromServer(m, cid, reason: 'chat_enter');
+    await _markReadBestEffort(m, cid, reason: 'chat_enter');
   }
 
   Future<void> _openTimelineView(
@@ -255,7 +259,47 @@ class ImOutboundFacade {
   Future<void> chatPullServerAndMarkRead(String conversationId) async {
     final m = _messages(conversationId);
     await _openTimelineView(conversationId, reason: 'chat_pull');
-    await m.markFullyReadAtTop();
+    await _syncTimelineFromServer(m, conversationId, reason: 'chat_pull');
+    await _markReadBestEffort(m, conversationId, reason: 'chat_pull');
+  }
+
+  Future<void> chatPullServer(String conversationId) async {
+    final m = _messages(conversationId);
+    await _openTimelineView(conversationId, reason: 'foreground_refresh');
+    await _syncTimelineFromServer(
+      m,
+      conversationId,
+      reason: 'foreground_refresh',
+    );
+  }
+
+  Future<void> _syncTimelineFromServer(
+    MessageListNotifier messages,
+    String conversationId, {
+    required String reason,
+  }) async {
+    final cid = conversationId.trim();
+    if (cid.isEmpty) return;
+    try {
+      await messages.refreshFromServer().timeout(_chatMessageSyncTimeout);
+    } catch (e, st) {
+      debugPrint('syncTimelineFromServer failed ($reason/$cid): $e\n$st');
+    }
+  }
+
+  Future<void> _markReadBestEffort(
+    MessageListNotifier messages,
+    String conversationId, {
+    required String reason,
+  }) async {
+    final cid = conversationId.trim();
+    if (cid.isEmpty) return;
+    try {
+      await messages.markFullyReadAtTop().timeout(_chatMarkReadTimeout);
+    } catch (e, st) {
+      debugPrint('markReadBestEffort failed ($reason/$cid): $e\n$st');
+      _conversations.applyUnreadPatch(cid, 0);
+    }
   }
 
   Future<void> chatSyncConversationMeta(String conversationId) =>
