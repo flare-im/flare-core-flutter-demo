@@ -217,6 +217,18 @@ final class _AppSdkEventListener extends core.FlareImEventListener {
   }
 
   @override
+  void onTypingAggregateChanged(core.TypingAggregateEvent event) {
+    final conversationId = event.conversationId.trim();
+    if (conversationId.isEmpty) return;
+    imEventBus.fire(
+      TypingAggregateEvent(
+        conversationId: conversationId,
+        userIds: event.typingUserIds,
+      ),
+    );
+  }
+
+  @override
   void onMessageBurned(core.MessageMutationEvent event) {
     _fireConversationId(event.conversationId);
   }

@@ -76,10 +76,7 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
       conversationId: conversationId,
       limit: limit,
     );
-    state = _normalizeCallSignalNotices(
-      _reapplyPeerReadToMessages(_coreMessageSnapshot(messages)),
-    );
-    _cancelResolvedSendTracking();
+    _replaceWithCoreSnapshot(messages);
   }
 
   Future<void> openTimeline({int limit = 50}) async {
@@ -87,18 +84,21 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
       conversationId: conversationId,
       limit: limit,
     );
-    state = _normalizeCallSignalNotices(
-      _reapplyPeerReadToMessages(_coreMessageSnapshot(messages)),
-    );
-    _cancelResolvedSendTracking();
+    _replaceWithCoreSnapshot(messages);
   }
 
   void applyCoreSnapshot(List<Message> snapshot) {
     final fetched = snapshot
         .where((message) => message.conversationId.trim() == conversationId)
         .toList(growable: false);
+    _replaceWithCoreSnapshot(fetched);
+  }
+
+  void _replaceWithCoreSnapshot(List<Message> snapshot) {
     state = _normalizeCallSignalNotices(
-      _reapplyPeerReadToMessages(_coreMessageSnapshot(fetched)),
+      _reapplyPeerReadToMessages(
+        _coreSnapshotPreservingUnresolvedLocal(snapshot),
+      ),
     );
     _cancelResolvedSendTracking();
   }
@@ -148,6 +148,22 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
       _reapplyPeerReadToMessages(_timelineDisplayOrder(next)),
     );
     _cancelResolvedSendTracking();
+  }
+
+  bool containsClientMessage(String clientMsgId) {
+    final id = clientMsgId.trim();
+    if (id.isEmpty) return false;
+    return state.any((message) => message.clientMsgId.trim() == id);
+  }
+
+  void applySendFailurePayload(Map<String, dynamic> failure) {
+    final clientMsgId =
+        (failure['clientMsgId'] ?? failure['client_msg_id'])
+            ?.toString()
+            .trim() ??
+        '';
+    if (clientMsgId.isEmpty) return;
+    _applySendFailure(clientMsgId, failure);
   }
 
   /// 下行同步 + 重新拉取本地列表（`IMClient::sync_messages`）
@@ -739,6 +755,30 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
           ),
         )
         .toList();
+  }
+
+  List<Message> _coreSnapshotPreservingUnresolvedLocal(List<Message> incoming) {
+    final next = List<Message>.from(_coreMessageSnapshot(incoming));
+    for (final message in state) {
+      if (!_shouldPreserveUnresolvedLocal(message)) continue;
+      final cid = message.conversationId.trim();
+      if (cid.isNotEmpty && cid != conversationId) continue;
+      if (_incomingMessageIndex(next, message) >= 0) continue;
+      next.add(message);
+    }
+    return _timelineDisplayOrder(next);
+  }
+
+  bool _shouldPreserveUnresolvedLocal(Message message) {
+    final clientMsgId = message.clientMsgId.trim();
+    if (clientMsgId.isEmpty) return false;
+    if (message.status == MessageStatus.sending ||
+        message.status == MessageStatus.failed) {
+      return true;
+    }
+    return message.source == MessageSource.local &&
+        message.serverId.trim().isEmpty &&
+        message.seq <= 0;
   }
 
   void _watchSendTimeout(String clientMsgId) {

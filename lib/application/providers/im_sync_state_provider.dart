@@ -104,6 +104,43 @@ class TypingMapNotifier extends StateNotifier<Map<String, TypingSession>> {
     state = nextMap;
   }
 
+  void applyTypingAggregate({
+    required String conversationId,
+    required Iterable<String> userIds,
+  }) {
+    final cid = conversationId.trim();
+    if (cid.isEmpty) return;
+
+    final ids = userIds
+        .map((userId) => userId.trim())
+        .where((userId) => userId.isNotEmpty)
+        .toSet();
+
+    final prefix = '$cid\x1f';
+    final oldKeys = _expireTimers.keys
+        .where((key) => key.startsWith(prefix))
+        .toList();
+    for (final key in oldKeys) {
+      _expireTimers.remove(key)?.cancel();
+    }
+
+    final nextMap = Map<String, TypingSession>.from(state);
+    if (ids.isEmpty) {
+      nextMap.remove(cid);
+      state = nextMap;
+      return;
+    }
+
+    for (final uid in ids) {
+      final key = _timerKey(cid, uid);
+      _expireTimers[key] = Timer(_typingExpire, () {
+        applyTypingEvent(conversationId: cid, userId: uid, isTyping: false);
+      });
+    }
+    nextMap[cid] = TypingSession(ids);
+    state = nextMap;
+  }
+
   void clearConversation(String conversationId) {
     final cid = conversationId.trim();
     if (cid.isEmpty || !state.containsKey(cid)) return;

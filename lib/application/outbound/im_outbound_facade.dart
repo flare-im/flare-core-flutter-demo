@@ -207,8 +207,8 @@ class ImOutboundFacade {
   Future<void> chatEnterLoadAndMarkRead(String conversationId) async {
     final cid = conversationId.trim();
     final m = _messages(cid);
+    await _syncTimelineFromServer(m, cid, reason: 'chat_enter_prefetch');
     await _openTimelineView(cid, reason: 'chat_enter');
-    await _syncTimelineFromServer(m, cid, reason: 'chat_enter');
     await _markReadBestEffort(m, cid, reason: 'chat_enter');
   }
 
@@ -258,19 +258,19 @@ class ImOutboundFacade {
 
   Future<void> chatPullServerAndMarkRead(String conversationId) async {
     final m = _messages(conversationId);
-    await _openTimelineView(conversationId, reason: 'chat_pull');
     await _syncTimelineFromServer(m, conversationId, reason: 'chat_pull');
+    await _openTimelineView(conversationId, reason: 'chat_pull');
     await _markReadBestEffort(m, conversationId, reason: 'chat_pull');
   }
 
   Future<void> chatPullServer(String conversationId) async {
     final m = _messages(conversationId);
-    await _openTimelineView(conversationId, reason: 'foreground_refresh');
     await _syncTimelineFromServer(
       m,
       conversationId,
       reason: 'foreground_refresh',
     );
+    await _openTimelineView(conversationId, reason: 'foreground_refresh');
   }
 
   Future<void> _syncTimelineFromServer(

@@ -13,6 +13,7 @@ Thumbs.db
 .history
 .svn/
 .swiftpm/
+.codegraph/
 migrate_working_dir/
 
 # IntelliJ related

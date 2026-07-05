@@ -54,6 +54,8 @@ class ChatScreen extends ConsumerStatefulWidget {
 }
 
 class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
+  static const _foregroundRefreshInterval = Duration(seconds: 4);
+
   final _scrollController = ScrollController();
   final _composerKey = GlobalKey<MessageComposerState>();
   bool _loadingOlder = false;
@@ -66,6 +68,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
   List<String>? _lastRenderedMessageKeys;
   int _tailFollowGeneration = 0;
   final Set<Timer> _tailFollowTimers = <Timer>{};
+  Timer? _foregroundRefreshTimer;
+  bool _foregroundRefreshInFlight = false;
 
   /// 引用回复：列表稳定键 + 输入区展示用快照。
   String? _replyTargetMessageKey;
@@ -146,11 +150,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
   void didUpdateWidget(covariant ChatScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.conversationId != widget.conversationId) {
+      final oldCid = oldWidget.conversationId.trim();
       _replyTargetMessageKey = null;
       _replyQuoteSnapshot = null;
       _multiSelectMode = false;
       _multiSelectKeys.clear();
       _lastRenderedMessageKeys = null;
+      _cancelTailFollowTimers();
+      if (_isForeground && oldCid.isNotEmpty) {
+        _activeChatStack.remove(oldCid);
+        _activeChatStack.push(_cid);
+      }
+      Future.microtask(() async {
+        if (!mounted) return;
+        await _imOutbound.chatEnterLoadAndMarkRead(_cid);
+        unawaited(_refreshForegroundTimeline());
+      });
     }
   }
 
@@ -174,9 +189,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
       if (active) {
         if (!mounted) return;
         _activeChatStack.push(_cid);
+        _startForegroundRefreshTimer();
         return;
       }
       _activeChatStack.remove(_cid);
+      _stopForegroundRefreshTimer();
     });
   }
 
@@ -198,9 +215,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
     appRouteObserver.unsubscribe(this);
     _setForeground(false);
     _cancelTailFollowTimers();
+    _stopForegroundRefreshTimer();
     _scrollController.removeListener(_onScrollNearTop);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _startForegroundRefreshTimer() {
+    if (_foregroundRefreshTimer != null) return;
+    unawaited(_refreshForegroundTimeline());
+    _foregroundRefreshTimer = Timer.periodic(_foregroundRefreshInterval, (_) {
+      unawaited(_refreshForegroundTimeline());
+    });
+  }
+
+  void _stopForegroundRefreshTimer() {
+    _foregroundRefreshTimer?.cancel();
+    _foregroundRefreshTimer = null;
+  }
+
+  Future<void> _refreshForegroundTimeline() async {
+    if (!mounted || !_isForeground || _foregroundRefreshInFlight) return;
+    final cid = _cid;
+    if (cid.isEmpty) return;
+    _foregroundRefreshInFlight = true;
+    try {
+      await _imOutbound.chatPullServer(cid);
+    } catch (e, st) {
+      debugPrint('foreground timeline refresh failed ($cid): $e\n$st');
+    } finally {
+      _foregroundRefreshInFlight = false;
+    }
   }
 
   /// 正向时间线：offset 接近 0 时加载更早消息。

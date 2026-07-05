@@ -7,6 +7,7 @@ import 'package:flare_im/infrastructure/paths/sdk_data_url.dart';
 import 'package:flare_im/interface/theme/flare_im_design.dart';
 import 'package:flare_im/shared/config/app_config_loader.dart';
 import 'package:flare_im/shared/config/app_defaults_model.dart';
+import 'package:flare_im/shared/session/saved_session_store.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -126,6 +127,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         setState(() => _loginStage = '正在登录并建立实时连接');
       }
       await im.authLogin(userId, token);
+      await SavedSessionStore.save(
+        SavedSessionProfile(
+          userId: userId,
+          wsUrl: wsUrl,
+          transportMode: _transportMode,
+          quicUrl: _effectiveQuicUrl,
+          tlsCaCertPath: _effectiveTlsCaCertPath,
+        ),
+      );
 
       if (mounted) {
         context.go('/conversations');

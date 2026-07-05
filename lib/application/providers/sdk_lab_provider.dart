@@ -1567,6 +1567,15 @@ final class _SdkLabEventListener extends core.FlareImEventListener {
   }
 
   @override
+  void onTypingAggregateChanged(core.TypingAggregateEvent event) {
+    record('message', 'typing_aggregate', {
+      'conversationId': event.conversationId,
+      'typingUserIds': event.typingUserIds,
+      'typingCount': event.typingCount,
+    });
+  }
+
+  @override
   void onMessageBurned(core.MessageMutationEvent event) =>
       _mutation('burned', event);
 

@@ -368,7 +368,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd \"${SRCROOT}/../../..\" && FLARE_SYNC_RUST_FFI_ON_BUILD=1 cargo xtask build ios-verify\n";
+			shellScript = "\"${SRCROOT}/../scripts/ensure_ios_ffi_staticlib.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */

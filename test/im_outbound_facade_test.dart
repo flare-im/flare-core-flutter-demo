@@ -227,6 +227,14 @@ final class _FakeAuthRepository implements IAuthRepository {
   }
 
   @override
+  Future<User> prepareLocalSession(String userId) async {
+    return User(userId: userId, nickname: userId);
+  }
+
+  @override
+  Future<void> connectSession(String userId, String token) async {}
+
+  @override
   Future<void> logout() async {}
 
   @override

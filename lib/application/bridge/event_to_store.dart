@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flare_core_flutter_sdk/flare_core_flutter_sdk.dart' as core;
 import 'package:flare_im/application/bus/event_bus.dart';
 import 'package:flare_im/application/providers/active_chat_stack_provider.dart';
@@ -75,6 +76,11 @@ class _ImEventToStoreBridgeState extends ConsumerState<ImEventToStoreBridge>
       imEventBus.on<MessageReadReceiptEvent>().listen(_onMessageReadReceipt),
     );
     _subs.add(imEventBus.on<MessageSendAckEvent>().listen(_onMessageSendAck));
+    _subs.add(
+      imEventBus.on<SdkMessageSendFailedEvent>().listen(
+        _onSdkMessageSendFailed,
+      ),
+    );
     _subs.add(imEventBus.on<RecallMessageEvent>().listen(_onRecallMessage));
     _subs.add(
       imEventBus.on<MessageReactionChangedEvent>().listen(
@@ -82,6 +88,7 @@ class _ImEventToStoreBridgeState extends ConsumerState<ImEventToStoreBridge>
       ),
     );
     _subs.add(imEventBus.on<TypingEvent>().listen(_onTyping));
+    _subs.add(imEventBus.on<TypingAggregateEvent>().listen(_onTypingAggregate));
     _subs.add(imEventBus.on<UserInfoUpdateEvent>().listen(_onUserInfo));
     _subs.add(imEventBus.on<PresenceUpdateEvent>().listen(_onPresence));
     _subs.add(imEventBus.on<ConnectionChangedEvent>().listen(_onConnection));
@@ -97,6 +104,10 @@ class _ImEventToStoreBridgeState extends ConsumerState<ImEventToStoreBridge>
     _subs.add(
       imEventBus.on<SdkProgressUpdatedEvent>().listen(_onSdkProgressUpdated),
     );
+    // 平台网络原始信号 → core 主动重连（策略全在 core：去抖/合并/退避）。
+    _subs.add(
+      Connectivity().onConnectivityChanged.listen(_onConnectivityChanged),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final userId = ref.read(currentUserProvider)?.userId.trim() ?? '';
@@ -105,6 +116,32 @@ class _ImEventToStoreBridgeState extends ConsumerState<ImEventToStoreBridge>
         unawaited(_setHeartbeatAppState(core.HeartbeatAppState.foreground));
       }
     });
+  }
+
+  Future<void> _onConnectivityChanged(List<ConnectivityResult> results) async {
+    final available = results.any((r) => r != ConnectivityResult.none);
+    final interface = results.contains(ConnectivityResult.wifi)
+        ? 'wifi'
+        : results.contains(ConnectivityResult.mobile)
+        ? 'cellular'
+        : results.contains(ConnectivityResult.ethernet)
+        ? 'ethernet'
+        : available
+        ? 'other'
+        : 'unknown';
+    try {
+      final sdk = ref.read(sdkWrapperProvider);
+      if (!sdk.isInitialized) return;
+      await sdk.notifyNetworkChange(
+        available: available,
+        interface: interface,
+        expensive: false,
+        metered: results.contains(ConnectivityResult.mobile),
+        reason: 'connectivity_plus',
+      );
+    } catch (e) {
+      debugPrint('notifyNetworkChange failed ($interface): $e');
+    }
   }
 
   @override
@@ -282,6 +319,46 @@ class _ImEventToStoreBridgeState extends ConsumerState<ImEventToStoreBridge>
     ref.read(messageProvider(cid).notifier).applySendAck(e.ack);
   }
 
+  void _onSdkMessageSendFailed(SdkMessageSendFailedEvent e) {
+    final payload = e.payload;
+    final clientMsgId =
+        (payload['clientMsgId'] ?? payload['client_msg_id'])
+            ?.toString()
+            .trim() ??
+        '';
+    if (clientMsgId.isEmpty) return;
+
+    final cid =
+        (payload['conversationId'] ?? payload['conversation_id'])
+            ?.toString()
+            .trim() ??
+        '';
+    if (cid.isNotEmpty) {
+      ref.read(messageProvider(cid).notifier).applySendFailurePayload(payload);
+      return;
+    }
+
+    final candidates = <String>{
+      ...ref
+          .read(activeChatStackProvider)
+          .map((id) => id.trim())
+          .where((id) => id.isNotEmpty),
+      _currentOpenConversationId(),
+    }..remove('');
+
+    for (final candidate in candidates) {
+      final notifier = ref.read(messageProvider(candidate).notifier);
+      if (!notifier.containsClientMessage(clientMsgId)) continue;
+      notifier.applySendFailurePayload(payload);
+      return;
+    }
+
+    debugPrint(
+      'flare app message_send_failed dropped: missing conversationId '
+      'clientMsgId=$clientMsgId',
+    );
+  }
+
   void _onRecallMessage(RecallMessageEvent e) {
     final cid = e.conversationId.trim();
     final messageId = e.messageId.trim();
@@ -309,6 +386,15 @@ class _ImEventToStoreBridgeState extends ConsumerState<ImEventToStoreBridge>
           conversationId: e.conversationId,
           userId: e.userId,
           isTyping: e.isTyping,
+        );
+  }
+
+  void _onTypingAggregate(TypingAggregateEvent e) {
+    ref
+        .read(typingMapProvider.notifier)
+        .applyTypingAggregate(
+          conversationId: e.conversationId,
+          userIds: e.userIds,
         );
   }
 

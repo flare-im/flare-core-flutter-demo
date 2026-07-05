@@ -40,6 +40,7 @@ dependencies:
       ref: e433ae1aac3daeecc63a7a6d000e9926a4c57cfe
 
   shared_preferences: ^2.5.5
+  connectivity_plus: ^6.1.0
   path_provider: ^2.1.5
   image_picker: ^1.2.1
   file_picker: ^8.3.7

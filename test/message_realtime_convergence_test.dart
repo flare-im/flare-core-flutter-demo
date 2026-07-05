@@ -295,13 +295,12 @@ void main() {
       container
           .read(conversationProvider.notifier)
           .upsert(_conversation('c1', updatedAtMs: 1000));
-      container.read(messageProvider('c1').notifier).applyCoreSnapshot([
+      final notifier = container.read(messageProvider('c1').notifier);
+      notifier.applyCoreSnapshot([
         _message('c1', 1, 'old', timestampMs: 1000, timelineKey: 'seq:1'),
       ]);
 
-      final sendFuture = container
-          .read(messageProvider('c1').notifier)
-          .sendText('instant');
+      final sendFuture = notifier.sendText('instant');
 
       final pendingMessages = container.read(messageProvider('c1'));
       expect(pendingMessages.map((m) => m.content.previewText), [
@@ -312,6 +311,16 @@ void main() {
       expect(pendingMessages.last.source, MessageSource.local);
       expect(pendingMessages.last.clientMsgId, startsWith('local:'));
       expect(repo.sentMessages, isEmpty);
+
+      notifier.applyCoreSnapshot([
+        _message('c1', 1, 'old', timestampMs: 1000, timelineKey: 'seq:1'),
+      ]);
+      final refreshedPendingMessages = container.read(messageProvider('c1'));
+      expect(refreshedPendingMessages.map((m) => m.content.previewText), [
+        'old',
+        'instant',
+      ]);
+      expect(refreshedPendingMessages.last.status, MessageStatus.sending);
 
       repo.completeCreate();
       await sendFuture;
@@ -328,6 +337,51 @@ void main() {
       expect(repo.sentMessages.single.clientMsgId, 'client-delayed');
     },
   );
+
+  test('core timeline snapshot preserves failed local send row', () async {
+    final container = ProviderContainer(
+      overrides: [
+        conversationRepositoryProvider.overrideWithValue(
+          _UnusedConversationRepository(),
+        ),
+        messageRepositoryProvider.overrideWithValue(
+          _FailingSendMessageRepository(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    container
+        .read(conversationProvider.notifier)
+        .upsert(_conversation('c1', updatedAtMs: 1000));
+
+    final notifier = container.read(messageProvider('c1').notifier);
+    notifier.applyCoreSnapshot([
+      _message('c1', 1, 'old', timestampMs: 1000, timelineKey: 'seq:1'),
+    ]);
+
+    await notifier.sendText('offline-send');
+
+    final failedMessages = container.read(messageProvider('c1'));
+    expect(failedMessages.map((m) => m.content.previewText), [
+      'old',
+      'offline-send',
+    ]);
+    expect(failedMessages.last.status, MessageStatus.failed);
+    expect(failedMessages.last.localUpload?.error, 'offline');
+
+    notifier.applyCoreSnapshot([
+      _message('c1', 1, 'old', timestampMs: 1000, timelineKey: 'seq:1'),
+    ]);
+
+    final refreshedMessages = container.read(messageProvider('c1'));
+    expect(refreshedMessages.map((m) => m.content.previewText), [
+      'old',
+      'offline-send',
+    ]);
+    expect(refreshedMessages.last.status, MessageStatus.failed);
+    expect(refreshedMessages.last.localUpload?.error, 'offline');
+  });
 
   test('core timeline snapshot normalizes to display order', () {
     final container = ProviderContainer(
@@ -533,6 +587,52 @@ final class _DelayedTextMessageRepository implements IMessageRepository {
       'conversationSeq': 43,
     };
     onSuccess?.call(ack);
+    return ack;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _FailingSendMessageRepository implements IMessageRepository {
+  @override
+  Future<core.Message> createTextMessage(
+    String conversationId,
+    String text,
+  ) async {
+    return core.Message(
+      serverId: '',
+      clientMsgId: 'client-failed',
+      conversationId: conversationId,
+      conversationSeq: 0,
+      createdAt: 7200,
+      clientCreatedAt: 7200,
+      messageType: 1,
+      source: 2,
+      status: 0,
+      timelineKey: 'client:client-failed',
+      timelineSortTs: 7200,
+      content: core.MessageContent(
+        contentType: core.MessageContentType.text,
+        data: {'text': text},
+      ),
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> sendCoreMessage(
+    core.Message message, {
+    MessageSendEventCallback? onProgress,
+    MessageSendEventCallback? onSuccess,
+    MessageSendEventCallback? onFailure,
+  }) async {
+    final ack = <String, dynamic>{
+      'success': false,
+      'clientMsgId': message.clientMsgId,
+      'conversationId': message.conversationId,
+      'reason': 'offline',
+    };
+    onFailure?.call(ack);
     return ack;
   }
 

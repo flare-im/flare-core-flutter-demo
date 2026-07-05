@@ -34,6 +34,14 @@ class AuthService {
 
   Future<User> login(String userId, String token) => _repo.login(userId, token);
 
+  /// 本地半段登录（热启动本地出图）。
+  Future<User> prepareLocalSession(String userId) =>
+      _repo.prepareLocalSession(userId);
+
+  /// 网络半段（热启动后台建连）。
+  Future<void> connectSession(String userId, String token) =>
+      _repo.connectSession(userId, token);
+
   Future<void> logout() => _repo.logout();
 
   Future<User?> getCurrentUser() => _repo.getCurrentUser();

@@ -47,6 +47,17 @@ class AuthRepositoryImpl implements IAuthRepository {
   }
 
   @override
+  Future<User> prepareLocalSession(String userId) async {
+    await _sdk.prepareLocal(userId);
+    return User(userId: userId, nickname: userId);
+  }
+
+  @override
+  Future<void> connectSession(String userId, String token) {
+    return _sdk.connectRemote(userId, token);
+  }
+
+  @override
   Future<void> logout() async {
     if (_sdk.isInitialized) {
       await _sdk.logout();

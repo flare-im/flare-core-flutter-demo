@@ -131,15 +131,25 @@ void main() {
   testWidgets('incoming foreground message inserts into active timeline', (
     tester,
   ) async {
+    final beforeMessage = _message('c1', 11, 'before', timestampMs: 5000);
+    final foregroundMessage = _message(
+      'c1',
+      12,
+      'foreground',
+      timestampMs: 6000,
+    );
     final conversationRepo = _ReloadConversationRepository([
       _conversation(
         'c1',
         updatedAtMs: 6000,
         unreadCount: 0,
-        lastMessage: _message('c1', 12, 'foreground', timestampMs: 6000),
+        lastMessage: foregroundMessage,
       ),
     ]);
-    final messageRepo = _RecordingMessageRepository();
+    final messageRepo = _RecordingMessageRepository([
+      beforeMessage,
+      foregroundMessage,
+    ]);
     final container = ProviderContainer(
       overrides: [
         conversationRepositoryProvider.overrideWithValue(conversationRepo),
@@ -160,7 +170,7 @@ void main() {
         );
     container.read(activeChatStackProvider.notifier).push('c1');
     container.read(messageProvider('c1').notifier).applyCoreSnapshot([
-      _message('c1', 11, 'before', timestampMs: 5000),
+      beforeMessage,
     ]);
 
     await tester.pumpWidget(
@@ -170,11 +180,7 @@ void main() {
       ),
     );
 
-    imEventBus.fire(
-      IncomingMessagesEvent([
-        _message('c1', 12, 'foreground', timestampMs: 6000),
-      ]),
-    );
+    imEventBus.fire(IncomingMessagesEvent([foregroundMessage]));
     await tester.pump();
     await tester.pump();
 
@@ -190,19 +196,21 @@ void main() {
   testWidgets('incoming selected desktop conversation updates timeline', (
     tester,
   ) async {
+    final beforeMessage = _message('c1', 11, 'before', timestampMs: 5000);
+    final desktopMessage = _message('c1', 12, 'desktop-new', timestampMs: 7000);
     final conversationRepo = _ReloadConversationRepository([
       _conversation(
         'c1',
         updatedAtMs: 7000,
         unreadCount: 0,
-        lastMessage: _message('c1', 12, 'desktop-new', timestampMs: 7000),
+        lastMessage: desktopMessage,
       ),
     ]);
     final container = ProviderContainer(
       overrides: [
         conversationRepositoryProvider.overrideWithValue(conversationRepo),
         messageRepositoryProvider.overrideWithValue(
-          _RecordingMessageRepository(),
+          _RecordingMessageRepository([beforeMessage, desktopMessage]),
         ),
       ],
     );
@@ -217,7 +225,43 @@ void main() {
     container.read(conversationProvider.notifier).upsert(selected);
     container.read(selectedConversationProvider.notifier).state = selected;
     container.read(messageProvider('c1').notifier).applyCoreSnapshot([
-      _message('c1', 11, 'before', timestampMs: 5000),
+      beforeMessage,
+    ]);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const ImEventToStoreBridge(child: SizedBox.shrink()),
+      ),
+    );
+
+    imEventBus.fire(IncomingMessagesEvent([desktopMessage]));
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      container.read(messageProvider('c1')).map((m) => m.content.previewText),
+      ['before', 'desktop-new'],
+    );
+    expect(conversationRepo.markAsReadConversationId, 'c1');
+    expect(conversationRepo.markAsReadSeq, 12);
+  });
+
+  testWidgets('sdk send failed event marks active local message failed', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        messageRepositoryProvider.overrideWithValue(
+          _RecordingMessageRepository(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    container.read(activeChatStackProvider.notifier).push('c1');
+    container.read(messageProvider('c1').notifier).mergeIncomingMessages([
+      _localSendingMessage('c1', clientMsgId: 'client-failed'),
     ]);
 
     await tester.pumpWidget(
@@ -228,19 +272,16 @@ void main() {
     );
 
     imEventBus.fire(
-      IncomingMessagesEvent([
-        _message('c1', 12, 'desktop-new', timestampMs: 7000),
-      ]),
+      const SdkMessageSendFailedEvent({
+        'clientMsgId': 'client-failed',
+        'reason': 'offline',
+      }),
     );
-    await tester.pump();
     await tester.pump();
 
-    expect(
-      container.read(messageProvider('c1')).map((m) => m.content.previewText),
-      ['before', 'desktop-new'],
-    );
-    expect(conversationRepo.markAsReadConversationId, 'c1');
-    expect(conversationRepo.markAsReadSeq, 12);
+    final message = container.read(messageProvider('c1')).single;
+    expect(message.status, MessageStatus.failed);
+    expect(message.localUpload?.error, 'offline');
   });
 
   testWidgets('incoming background message waits for core view deltas', (
@@ -364,6 +405,30 @@ final class _ReloadConversationRepository implements IConversationRepository {
 }
 
 final class _RecordingMessageRepository implements IMessageRepository {
+  _RecordingMessageRepository([List<Message> messages = const []])
+    : _messages = List.unmodifiable(messages);
+
+  final List<Message> _messages;
+
+  @override
+  Future<List<Message>> getMessages({
+    required String conversationId,
+    int? beforeSeq,
+    required int limit,
+  }) async {
+    final scoped = _messages
+        .where((message) => message.conversationId == conversationId)
+        .toList(growable: false);
+    return scoped.take(limit).toList(growable: false);
+  }
+
+  @override
+  Future<void> syncMessages({
+    required String conversationId,
+    int lastSeq = 0,
+    int limit = 50,
+  }) async {}
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -409,5 +474,28 @@ Message _message(
     source: MessageSource.remote,
     status: MessageStatus.sent,
     content: TextContent(text),
+  );
+}
+
+Message _localSendingMessage(
+  String conversationId, {
+  required String clientMsgId,
+}) {
+  final ts = DateTime.fromMillisecondsSinceEpoch(9000);
+  return Message(
+    serverId: '',
+    clientMsgId: clientMsgId,
+    conversationId: conversationId,
+    senderId: 'me',
+    senderName: 'me',
+    senderDisplayName: 'Me',
+    senderAvatar: '',
+    seq: 0,
+    timestamp: ts,
+    clientTimestamp: ts,
+    source: MessageSource.local,
+    status: MessageStatus.sending,
+    timelineKey: 'client:$clientMsgId',
+    content: const TextContent('pending'),
   );
 }

@@ -163,7 +163,8 @@ final class SdkWrapper {
     _initialized = true;
   }
 
-  Future<void> login(String userId, String token) async {
+  /// 本地半段登录：开库 + 装配引擎，不连网。热启动据此先本地出图。
+  Future<void> prepareLocal(String userId) async {
     _currentUserId = userId;
     debugPrint(
       'flare sdk prepare user=$userId ws=$_wsUrl tenant=$_tenantId dataUrl=${_dataUrl ?? ''}',
@@ -172,6 +173,10 @@ final class SdkWrapper {
       'userId': userId,
       'storeConfigJson': _storeConfigJson(),
     });
+  }
+
+  /// 网络半段：建立连接并完成首次同步。热启动在后台调用。
+  Future<void> connectRemote(String userId, String token) async {
     _lastState = await getConnectionState();
     debugPrint('flare sdk connect user=$userId state=${_lastState.name}');
     await _client.connect({'userId': userId, 'token': token});
@@ -182,6 +187,11 @@ final class SdkWrapper {
       'flare sdk login ready nativeDataRoot=${dataRoot['dataRoot'] ?? ''} '
       'currentUser=${currentUser['userId'] ?? currentUser['value'] ?? ''}',
     );
+  }
+
+  Future<void> login(String userId, String token) async {
+    await prepareLocal(userId);
+    await connectRemote(userId, token);
   }
 
   Future<void> _waitForConnectionReady({
@@ -821,6 +831,21 @@ final class SdkWrapper {
 
   Future<void> subscribeUserPresence(List<String> userIds) {
     return _client.presence.subscribeUserPresence({'userIds': userIds});
+  }
+
+  /// 业务端推送用户资料(名称/头像)到本地身份缓存。读路径(消息/会话)批量 join
+  /// 缓存渲染当前身份;缓存 miss 回退消息内嵌的发送时快照。业务同步好友/群成员时调用。
+  Future<void> upsertUserProfiles(List<Map<String, String>> profiles) {
+    final sanitized = profiles
+        .map((p) => {
+              'userId': (p['userId'] ?? '').trim(),
+              'nickname': p['nickname'] ?? '',
+              'avatarUrl': p['avatarUrl'] ?? '',
+            })
+        .where((p) => (p['userId'] as String).isNotEmpty)
+        .toList();
+    if (sanitized.isEmpty) return Future<void>.value();
+    return _client.user.upsertUserProfiles({'profiles': sanitized});
   }
 
   Future<Map<String, dynamic>> batchGetUserPresence(

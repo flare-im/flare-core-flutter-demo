@@ -10,7 +10,8 @@ echo "==> flutter pub get"
 (cd "$APP_ROOT" && flutter pub get)
 
 echo "==> sync Flutter FFI (iOS simulator → ios/FFI/build/)"
-(cd "$CLIENT_SDK_ROOT" && cargo xtask build ios-sim)
+HOST_ARCH="$(uname -m)"
+FLARE_IOS_PLATFORM=simulator ARCHS="${ARCHS:-$HOST_ARCH}" "$APP_ROOT/scripts/ensure_ios_ffi_staticlib.sh"
 
 echo "==> pod install"
 (cd "$APP_ROOT/ios" && pod install)

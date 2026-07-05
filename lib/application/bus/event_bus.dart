@@ -116,6 +116,16 @@ final class TypingEvent {
 }
 
 @immutable
+final class TypingAggregateEvent {
+  const TypingAggregateEvent({
+    required this.conversationId,
+    required this.userIds,
+  });
+  final String conversationId;
+  final List<String> userIds;
+}
+
+@immutable
 final class RecallMessageEvent {
   const RecallMessageEvent({
     required this.conversationId,

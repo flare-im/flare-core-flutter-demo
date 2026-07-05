@@ -88,9 +88,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       GoRoute(
         path: '/',
-        redirect: (context, state) {
-          final isLoggedIn = ref.read(isLoggedInProvider);
-          return isLoggedIn ? '/conversations' : '/login';
+        redirect: (context, state) async {
+          if (ref.read(isLoggedInProvider)) return '/conversations';
+          // 热启动：本地会话档案存在时 prepare 本地出图（毫秒级），跳过登录页；
+          // 连接与增量同步在后台补齐。
+          final resumed = await ref
+              .read(currentUserProvider.notifier)
+              .resumeSavedSession();
+          return resumed ? '/conversations' : '/login';
         },
       ),
     ],
