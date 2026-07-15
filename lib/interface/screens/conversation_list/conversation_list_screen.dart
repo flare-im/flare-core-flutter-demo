@@ -16,6 +16,9 @@ import 'package:flare_im/interface/widgets/unread_badge.dart';
 import 'package:flare_im/shared/i18n/flare_locale.dart';
 import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/layout/workbench_layout.dart';
+// Design-source app: delegate only genuine 1:1 presentational primitives to the
+// kit. Here the account presence dot maps exactly onto FlarePresenceDot.
+import 'package:flare_im_ui/flare_im_ui.dart' show FlarePresenceDot;
 import 'package:flutter/material.dart' hide ConnectionState;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -893,17 +896,14 @@ class _AccountSheetHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 right: -1,
                 bottom: -1,
-                child: Container(
-                  width: 13,
-                  height: 13,
-                  decoration: BoxDecoration(
-                    color: FlareImDesign.presenceOnline,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
+                child: FlarePresenceDot(
+                  color: FlareImDesign.presenceOnline,
+                  size: 13,
+                  ringColor: Colors.white,
+                  ringWidth: 2,
                 ),
               ),
             ],

@@ -384,6 +384,13 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
+  flare_im_ui:
+    dependency: "direct main"
+    description:
+      path: "../../../flare-im-design/flutter-im-ui"
+      relative: true
+    source: path
+    version: "0.1.0"
   flutter:
     dependency: "direct main"
     description: flutter

@@ -15,6 +15,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   flare_core_flutter_sdk:
     path: ../../packages/flare-core-flutter-sdk
+  flare_im_ui:
+    path: ../../../flare-im-design/flutter-im-ui
   flare_call_kit:
     path: packages/flare_call_kit_stub
 
