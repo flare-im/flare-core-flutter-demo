@@ -8,10 +8,11 @@ void main() {
     expect(AppDefaults.fallback.defaultWsUrl, 'ws://127.0.0.1:60051/ws');
     expect(AppDefaults.fallback.defaultQuicUrl, 'quic://127.0.0.1:60052');
     expect(AppDefaults.fallback.defaultTlsCaCertPath, isEmpty);
-    expect(
-      AppDefaults.fallback.devTokenSecret.length,
-      greaterThanOrEqualTo(32),
-    );
+    // 断言 fallback 是**不可用的占位**：原先只查长度 ≥32，一个真实密钥硬编码
+    // 在这里照样能过 —— 事实上正是这么混进来的。
+    expect(AppDefaults.fallback.devTokenSecret,
+        AppDefaults.placeholderTokenSecret);
+    expect(AppDefaults.fallback.hasUsableTokenSecret, isFalse);
     expect(AppDefaults.fallback.tokenIssuer, 'flare-im-core');
     expect(AppDefaults.fallback.tokenTtlSecs, 3600);
     expect(AppDefaults.fallback.defaultUserId, isEmpty);

@@ -390,7 +390,7 @@ packages:
       path: "../../../flare-im-design/flutter-im-ui"
       relative: true
     source: path
-    version: "0.1.0"
+    version: "1.0.5"
   flutter:
     dependency: "direct main"
     description: flutter

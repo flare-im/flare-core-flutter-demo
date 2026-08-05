@@ -1,6 +1,6 @@
 # Flutter 示例应用 — UI 与业务对齐说明
 
-本示例与 `flare-core-web-app`、`packages/flare-core-vue-im-ui` 共享同一套 **产品交互契约**（见 `.agents/skills/sdk-example-app-development`）。
+本示例与 `flare-core-web-app`、`packages/@flare-im/vue-ui` 共享同一套 **产品交互契约**（见 `.agents/skills/sdk-example-app-development`）。
 
 ## 分层
 

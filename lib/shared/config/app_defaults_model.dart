@@ -95,13 +95,27 @@ class AppDefaults {
   final String defaultUserId;
   final LoginCopy login;
 
+  /// 未配置密钥时的占位值。见 [fallback] 里的说明。
+  static const String placeholderTokenSecret = 'REPLACE_WITH_YOUR_DEV_TOKEN_SECRET';
+
+  /// 当前密钥是否仍是占位值 —— 调用方应据此拒绝签发 token 并提示配置。
+  bool get hasUsableTokenSecret => devTokenSecret != placeholderTokenSecret;
+
   static const AppDefaults fallback = AppDefaults(
     defaultWsUrl: 'ws://127.0.0.1:60051/ws',
     defaultQuicUrl: 'quic://127.0.0.1:60052',
     defaultTlsCaCertPath: '',
     tenantId: '0',
-    devTokenSecret:
-        'jhkcGVl4L3t7GVY+4jJPHbq8P7KTJv4qoBzOFUYo6oMw6P63x9jbnvjLrQpZuElt',
+    // 这里刻意放**占位串**而不是一个能用的密钥。
+    //
+    // 之前这里写的是某台开发机 logs/.dev-token-secret 里的真实值：它长得像正规
+    // 密钥，没人会意识到要换，而它一旦随仓库公开，任何仍在用这个值的服务端都能
+    // 被伪造 token。占位串换来的是启动时一次明确的失败，比一个"能跑但不安全"
+    // 的默认值好。
+    //
+    // 本机的真实值在 flare-im-core/logs/.dev-token-secret（起后端时生成），
+    // 或用 --dart-define=FLARE_TOKEN_SECRET=... 传入。
+    devTokenSecret: placeholderTokenSecret,
     tokenIssuer: 'flare-im-core',
     tokenTtlSecs: 3600,
     defaultUserId: '',

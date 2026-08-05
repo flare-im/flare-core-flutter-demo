@@ -29,7 +29,7 @@ lib/
 ## UI 与跨端对齐
 
 - 设计 token：`lib/shared/theme/flare_theme_tokens.dart`、`lib/interface/theme/flare_im_design.dart`
-- 中英 i18n：`lib/shared/i18n/`（键与 `flare-core-vue-im-ui` 对齐）
+- 中英 i18n：`lib/shared/i18n/`（键与 `@flare-im/vue-ui` 对齐）
 - 会话筛选：全部 / 未读 / @我 / 置顶 / 免打扰 / 归档 / 草稿（`listConversationsByQuery`）
 - 详细说明：`docs/UI_AND_I18N.md`
 

@@ -103,6 +103,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) {
         setState(() => _loginStage = '正在初始化 SDK 和本地数据库');
       }
+      // 占位密钥签出来的 token 服务端一律验不过。与其让用户拿着一个「登录失败」
+      // 去猜网络/账号哪里错了，不如在这里说清楚缺的是什么、去哪里拿。
+      if (!_defaults.hasUsableTokenSecret) {
+        throw StateError(
+          '未配置 dev token 密钥：assets/config/app_defaults.json 里的 devTokenSecret '
+          '仍是占位值。请填入 flare-im-core/logs/.dev-token-secret 的内容，'
+          '或以 --dart-define=FLARE_TOKEN_SECRET=... 启动。',
+        );
+      }
       await im.authEnsureSdkInitialized(
         wsUrl: wsUrl,
         transportMode: _transportMode,
