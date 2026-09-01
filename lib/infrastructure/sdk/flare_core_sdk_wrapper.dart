@@ -1497,30 +1497,24 @@ Map<String, Object?> _payloadData(Map<String, dynamic> source) {
   return data;
 }
 
-List<core.ForwardSourceMessage> _forwardSourceMessages(Object? raw) {
+/// 转发的源必须是**完整消息**，不是 id 存根。
+///
+/// 转发载荷要把原文嵌进去，核心侧 forward_item_from_source 会读
+/// content / senderId / conversationId；早先按 { sourceMessageId } 传，
+/// 反序列化成 IMMessage 时缺必填字段直接 INVALID_PARAMETER，转发每次都失败，
+/// 契约因此改成了 Message。这里一度还在构造 ForwardSourceMessage，
+/// 类型对不上，`flutter analyze` 直接报错。
+///
+/// 上游 provider 用 getRawMessageById 取的就是完整消息的原始 map，
+/// 直接交给 SDK 的 messageFromJson 解析即可，不要再手工拼字段。
+List<core.Message> _forwardSourceMessages(Object? raw) {
   if (raw is! List) return const [];
-  return [
-    for (final item in raw)
-      if (item is Map)
-        core.ForwardSourceMessage(
-          sourceMessageId: _stringParam(
-            item.cast<String, dynamic>(),
-            'sourceMessageId',
-          ),
-          sourceConversationId: _optionalStringParam(
-            item.cast<String, dynamic>(),
-            'sourceConversationId',
-          ),
-          sourceSenderId: _optionalStringParam(
-            item.cast<String, dynamic>(),
-            'sourceSenderId',
-          ),
-          plainText: _optionalStringParam(
-            item.cast<String, dynamic>(),
-            'plainText',
-          ),
-        ),
-  ];
+  final messages = <core.Message>[];
+  for (final item in raw) {
+    if (item is! Map) continue;
+    messages.add(core.messageFromJson(item.cast<String, dynamic>()));
+  }
+  return messages;
 }
 
 core.MessageContent _messageContentFromBuildRequest(
