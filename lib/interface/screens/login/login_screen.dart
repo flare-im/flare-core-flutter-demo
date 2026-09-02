@@ -27,6 +27,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   late final TextEditingController _serverUrlController;
   late final TextEditingController _quicUrlController;
   late final TextEditingController _tlsCaCertPathController;
+  /// 可选：直接填服务端签好的接入 token。
+  ///
+  /// 不填才回退到本地用 devTokenSecret 自签。留这个口子是因为把**签名密钥**放进
+  /// 客户端等于让任何拿到安装包的人都能伪造任意用户身份 —— 仓库自己的
+  /// mint_token.py 也是这么写的：密钥留在服务器，只把签好的 token 发出去。
+  /// web 端一直有这个输入框，原生端没有，于是只能连"自己握有密钥"的服务器。
+  late final TextEditingController _accessTokenController;
 
   AppDefaults _defaults = AppDefaults.fallback;
   SdkTransportMode _transportMode = SdkTransportMode.websocket;
@@ -43,6 +50,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _quicUrlController = TextEditingController(
       text: AppDefaults.fallback.defaultQuicUrl,
     );
+    _accessTokenController = TextEditingController();
     _tlsCaCertPathController = TextEditingController(
       text: AppDefaults.fallback.defaultTlsCaCertPath,
     );
@@ -69,6 +77,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _serverUrlController.dispose();
     _quicUrlController.dispose();
     _tlsCaCertPathController.dispose();
+    _accessTokenController.dispose();
     super.dispose();
   }
 
@@ -103,12 +112,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) {
         setState(() => _loginStage = '正在初始化 SDK 和本地数据库');
       }
+      // 高级区填了现成的接入 token 就直接用，不需要本地持有签名密钥。
+      final pastedToken = _accessTokenController.text.trim();
       // 占位密钥签出来的 token 服务端一律验不过。与其让用户拿着一个「登录失败」
       // 去猜网络/账号哪里错了，不如在这里说清楚缺的是什么、去哪里拿。
-      if (!_defaults.hasUsableTokenSecret) {
+      if (pastedToken.isEmpty && !_defaults.hasUsableTokenSecret) {
         throw StateError(
-          '未配置 dev token 密钥：assets/config/app_defaults.json 里的 devTokenSecret '
-          '仍是占位值。请填入 flare-im-core/logs/.dev-token-secret 的内容，'
+          '既没有填「接入 token」，也没有配置 dev token 密钥：'
+          'assets/config/app_defaults.json 里的 devTokenSecret 仍是占位值。'
+          '推荐用前者——签名密钥留在服务器上，客户端只拿签好的 token；'
+          '要本地自签则填入 flare-im-core/logs/.dev-token-secret 的内容，'
           '或以 --dart-define=FLARE_TOKEN_SECRET=... 启动。',
         );
       }
@@ -128,10 +141,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) {
         setState(() => _loginStage = '正在生成登录凭证');
       }
-      final token = await im.authGenerateCoreToken(
-        userId,
-        expireSeconds: _defaults.tokenTtlSecs,
-      );
+      final token = pastedToken.isNotEmpty
+          ? pastedToken
+          : await im.authGenerateCoreToken(
+              userId,
+              expireSeconds: _defaults.tokenTtlSecs,
+            );
       if (mounted) {
         setState(() => _loginStage = '正在登录并建立实时连接');
       }
@@ -527,6 +542,41 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                             ),
                             const SizedBox(height: 10),
+                                                        // 可选：直接填服务端签好的接入 token。填了就不需要本地持有签名密钥 ——
+                            // 把密钥放进客户端等于让任何拿到安装包的人都能伪造任意用户身份。
+                            TextFormField(
+                              controller: _accessTokenController,
+                              decoration: InputDecoration(
+                                hintText:
+                                    '留空则用本地 devTokenSecret 自签',
+                                hintStyle: const TextStyle(
+                                  color: FlareImDesign.loginHint,
+                                  fontSize: 13,
+                                ),
+                                labelText: '接入 token（可选）',
+                                filled: true,
+                                fillColor: FlareImDesign.loginInputFill,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: const BorderSide(
+                                    color: FlareImDesign.loginInputBorder,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: const BorderSide(
+                                    color: FlareImDesign.loginInputBorder,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: const BorderSide(
+                                    color: FlareThemeTokens.primary,
+                                    width: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ),
                             TextFormField(
                               controller: _tlsCaCertPathController,
                               decoration: InputDecoration(
