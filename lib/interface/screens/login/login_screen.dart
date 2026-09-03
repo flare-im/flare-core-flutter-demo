@@ -34,6 +34,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   /// mint_token.py 也是这么写的：密钥留在服务器，只把签好的 token 发出去。
   /// web 端一直有这个输入框，原生端没有，于是只能连"自己握有密钥"的服务器。
   late final TextEditingController _accessTokenController;
+  late final TextEditingController _tokenSecretController;
 
   AppDefaults _defaults = AppDefaults.fallback;
   SdkTransportMode _transportMode = SdkTransportMode.websocket;
@@ -51,6 +52,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       text: AppDefaults.fallback.defaultQuicUrl,
     );
     _accessTokenController = TextEditingController();
+    _tokenSecretController = TextEditingController();
     _tlsCaCertPathController = TextEditingController(
       text: AppDefaults.fallback.defaultTlsCaCertPath,
     );
@@ -78,6 +80,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _quicUrlController.dispose();
     _tlsCaCertPathController.dispose();
     _accessTokenController.dispose();
+    _tokenSecretController.dispose();
     super.dispose();
   }
 
@@ -114,11 +117,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
       // 高级区填了现成的接入 token 就直接用，不需要本地持有签名密钥。
       final pastedToken = _accessTokenController.text.trim();
+      // 密钥优先取运行时填的那个。做成输入而不是只读构建期常量：
+      // 打进安装包等于让任何拿到它的人伪造任意用户身份；填在这里只落在本机。
+      final typedSecret = _tokenSecretController.text.trim();
+      final effectiveSecret =
+          typedSecret.isNotEmpty ? typedSecret : _defaults.devTokenSecret;
       // 占位密钥签出来的 token 服务端一律验不过。与其让用户拿着一个「登录失败」
       // 去猜网络/账号哪里错了，不如在这里说清楚缺的是什么、去哪里拿。
-      if (pastedToken.isEmpty && !_defaults.hasUsableTokenSecret) {
+      if (pastedToken.isEmpty && typedSecret.isEmpty && !_defaults.hasUsableTokenSecret) {
         throw StateError(
-          '既没有填「接入 token」，也没有配置 dev token 密钥：'
+          '既没有填「接入 token」，也没有填「签名密钥」：'
           'assets/config/app_defaults.json 里的 devTokenSecret 仍是占位值。'
           '推荐用前者——签名密钥留在服务器上，客户端只拿签好的 token；'
           '要本地自签则填入 flare-im-core/logs/.dev-token-secret 的内容，'
@@ -130,7 +138,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         transportMode: _transportMode,
         quicUrl: _effectiveQuicUrl,
         tenantId: _defaults.tenantId,
-        tokenSecret: _defaults.devTokenSecret,
+        tokenSecret: effectiveSecret,
         tokenIssuer: _defaults.tokenIssuer,
         tokenTtlSecs: _defaults.tokenTtlSecs,
         tlsCaCertPath: _effectiveTlsCaCertPath,
@@ -554,6 +562,43 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   fontSize: 13,
                                 ),
                                 labelText: '接入 token（可选）',
+                                filled: true,
+                                fillColor: FlareImDesign.loginInputFill,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: const BorderSide(
+                                    color: FlareImDesign.loginInputBorder,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: const BorderSide(
+                                    color: FlareImDesign.loginInputBorder,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: const BorderSide(
+                                    color: FlareThemeTokens.primary,
+                                    width: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            // 运行时填入服务端的签名密钥，之后只输入 user id 即可登录。
+                            // 做成输入而不是打进安装包：打进去等于让任何拿到安装包的人
+                            // 伪造任意用户身份；填在这里只落在本机。
+                            TextFormField(
+                              controller: _tokenSecretController,
+                              decoration: InputDecoration(
+                                hintText:
+                                    '服务端的签名密钥 —— 用它按用户 ID 在本地签发',
+                                hintStyle: const TextStyle(
+                                  color: FlareImDesign.loginHint,
+                                  fontSize: 13,
+                                ),
+                                labelText: '签名密钥（可选）',
                                 filled: true,
                                 fillColor: FlareImDesign.loginInputFill,
                                 border: OutlineInputBorder(

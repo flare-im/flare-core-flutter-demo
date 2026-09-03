@@ -31,13 +31,31 @@ void main() {
       );
     });
 
-    test('只有两条路都没有时才报错，不能因为没配密钥就把填了 token 的用户挡住', () {
+    test('只有三条路都没有时才报错：贴了 token、或运行时填了密钥，都不能被挡', () {
+      // 三条路：贴服务端签好的 token / 运行时填签名密钥 / 构建期配置的密钥。
+      // 任一存在都要放行；判据钉住"三者皆空才报错"这个形态。
       expect(
-        RegExp(r'pastedToken\.isEmpty\s*&&\s*!_defaults\.hasUsableTokenSecret')
+        RegExp(
+          r'pastedToken\.isEmpty\s*&&\s*typedSecret\.isEmpty\s*&&\s*!_defaults\.hasUsableTokenSecret',
+        ).hasMatch(source),
+        isTrue,
+        reason: '密钥检查没有让开 token / 运行时密钥路径，填了也会被挡下',
+      );
+    });
+
+    test('运行时填的密钥优先于构建期默认值，并真的传给了 SDK 初始化', () {
+      // 做成运行时输入而不是打进安装包：打进去等于让任何拿到安装包的人伪造任意用户身份。
+      expect(source.contains('_tokenSecretController'), isTrue,
+          reason: '缺少签名密钥的输入控制器');
+      expect(
+        RegExp(r'typedSecret\.isNotEmpty\s*\?\s*typedSecret\s*:\s*_defaults\.devTokenSecret')
             .hasMatch(source),
         isTrue,
-        reason: '密钥检查没有让开 token 路径，填了 token 也会被挡下',
+        reason: '运行时密钥没有覆盖构建期默认值',
       );
+      expect(source.contains('tokenSecret: effectiveSecret,'), isTrue,
+          reason: '生效的密钥没有传给 SDK 初始化');
+      expect(source.contains('_tokenSecretController.dispose()'), isTrue);
     });
 
     test('token 控制器被释放，不泄漏', () {
