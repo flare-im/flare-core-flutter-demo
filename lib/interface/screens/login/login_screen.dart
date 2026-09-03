@@ -4,6 +4,7 @@ import 'package:flare_im/application/providers/im_outbound_provider.dart';
 import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/domain/value_objects/transport_mode.dart';
 import 'package:flare_im/infrastructure/paths/sdk_data_url.dart';
+import 'package:flare_im/interface/screens/login/login_error_text.dart';
 import 'package:flare_im/interface/theme/flare_im_design.dart';
 import 'package:flare_im/shared/config/app_config_loader.dart';
 import 'package:flare_im/shared/config/app_defaults_model.dart';
@@ -12,7 +13,6 @@ import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flare_im/interface/screens/login/login_error_text.dart';
 
 /// 登录页（设计稿：上紫渐变品牌区 + 下白表单区，品牌紫主按钮）
 class LoginScreen extends ConsumerStatefulWidget {
