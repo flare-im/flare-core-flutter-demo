@@ -591,6 +591,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             // 伪造任意用户身份；填在这里只落在本机。
                             TextFormField(
                               controller: _tokenSecretController,
+                              obscureText: true,
                               decoration: InputDecoration(
                                 hintText:
                                     '服务端的签名密钥 —— 用它按用户 ID 在本地签发',
