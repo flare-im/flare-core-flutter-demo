@@ -9,22 +9,20 @@ abstract class IAuthRepository {
     required SdkTransportMode transportMode,
     required String quicUrl,
     required String tenantId,
-    required String tokenSecret,
-    required String tokenIssuer,
-    required int tokenTtlSecs,
+    required String httpUrl,
     String? tlsCaCertPath,
     String? dataUrl,
   });
 
   bool get isSdkInitialized;
 
-  Future<User> login(String userId, String token);
+  Future<User> login(String userId, [String? token]);
 
   /// 本地半段登录：开库 + 装配引擎，不连网 — 热启动本地出图用。
   Future<User> prepareLocalSession(String userId);
 
   /// 网络半段：建立连接并完成首次同步（热启动在后台调用）。
-  Future<void> connectSession(String userId, String token);
+  Future<void> connectSession(String userId, [String? token]);
 
   /// 调用 `flare_sdk_logout`，不释放 SDK 句柄
   Future<void> logout();
@@ -32,8 +30,6 @@ abstract class IAuthRepository {
   Future<User?> getCurrentUser();
 
   Future<ConnectionState> getConnectionState();
-
-  Future<String> generateCoreToken(String userId, int expireSeconds);
 
   Future<String> sdkVersion();
 }

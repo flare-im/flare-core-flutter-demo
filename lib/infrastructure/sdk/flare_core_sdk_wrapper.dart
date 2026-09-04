@@ -9,14 +9,12 @@ import 'package:flutter/foundation.dart';
 final class SdkConfig {
   const SdkConfig({
     required this.wsUrl,
-    required this.tokenSecret,
+    required this.httpUrl,
     this.transportMode = SdkTransportMode.websocket,
     this.quicUrl = 'quic://127.0.0.1:60052',
     this.tlsCaCertPath,
     this.dataUrl,
     this.tenantId = '0',
-    this.tokenIssuer = 'flare-im-core',
-    this.tokenTtlSecs = 3600,
   });
 
   final String wsUrl;
@@ -25,9 +23,10 @@ final class SdkConfig {
   final String? tlsCaCertPath;
   final String? dataUrl;
   final String tenantId;
-  final String tokenSecret;
-  final String tokenIssuer;
-  final int tokenTtlSecs;
+
+  /// 网关 HTTP 基址：SDK 托管 token 时向 {httpUrl}/api/v1/auth/tokens 签发并自动刷新；
+  /// 也是媒体等 HTTP 接口的基址。客户端从不持有签名密钥。
+  final String httpUrl;
 }
 
 Map<String, Object?> buildSdkTransportConfig(SdkConfig config) {
@@ -87,9 +86,7 @@ final class SdkWrapper {
   String? _tlsCaCertPath;
   String _currentUserId = '';
   String _tenantId = '0';
-  String _tokenSecret = '';
-  String _tokenIssuer = 'flare-im-core';
-  int _tokenTtlSecs = 3600;
+  String _httpUrl = '';
   String? _dataUrl;
   core.ConnectionState _lastState = core.ConnectionState.disconnected;
   Map<String, Object?>? _nativeEventSubscription;
@@ -109,18 +106,7 @@ final class SdkWrapper {
         ? '0'
         : config.tenantId.trim();
     final nextDataUrl = config.dataUrl?.trim();
-    final nextTokenSecret = config.tokenSecret.trim();
-    final nextTokenIssuer = config.tokenIssuer.trim().isEmpty
-        ? 'flare-im-core'
-        : config.tokenIssuer.trim();
-    final nextTokenTtlSecs = config.tokenTtlSecs > 0
-        ? config.tokenTtlSecs
-        : 3600;
-    if (_isWeakTokenSecret(nextTokenSecret)) {
-      throw ArgumentError(
-        'FLARE_TOKEN_SECRET/dev_token_secret must be a non-placeholder secret with at least 32 bytes.',
-      );
-    }
+    final nextHttpUrl = config.httpUrl.trim();
     final transportConfig = buildSdkTransportConfig(config);
     if (_initialized &&
         _wsUrl == nextWsUrl &&
@@ -129,9 +115,7 @@ final class SdkWrapper {
         _tlsCaCertPath == nextTlsCaCertPath &&
         _tenantId == nextTenantId &&
         _dataUrl == nextDataUrl &&
-        _tokenSecret == nextTokenSecret &&
-        _tokenIssuer == nextTokenIssuer &&
-        _tokenTtlSecs == nextTokenTtlSecs) {
+        _httpUrl == nextHttpUrl) {
       return;
     }
     if (_initialized) {
@@ -148,15 +132,17 @@ final class SdkWrapper {
     _tlsCaCertPath = nextTlsCaCertPath;
     _tenantId = nextTenantId;
     _dataUrl = nextDataUrl;
-    _tokenSecret = nextTokenSecret;
-    _tokenIssuer = nextTokenIssuer;
-    _tokenTtlSecs = nextTokenTtlSecs;
+    _httpUrl = nextHttpUrl;
     debugPrint(
-      'flare sdk init transport=${_transportMode.name} ws=$_wsUrl tenant=$_tenantId tokenIssuer=$_tokenIssuer dataUrl=${_dataUrl ?? ''}',
+      'flare sdk init transport=${_transportMode.name} ws=$_wsUrl http=$_httpUrl tenant=$_tenantId dataUrl=${_dataUrl ?? ''}',
     );
     await _client.init({
       ...transportConfig,
       'tenantId': _tenantId,
+      if (_httpUrl.isNotEmpty) 'httpUrl': _httpUrl,
+      // SDK 托管 token：核心向 {httpUrl}/api/v1/auth/tokens 签发、到期前刷新。
+      // login 传了显式 token 时核心直接用它，不走签发。
+      if (_httpUrl.isNotEmpty) 'auth': {'tokenEndpoint': _httpUrl},
       if (_dataUrl != null && _dataUrl!.isNotEmpty) 'dataUrl': _dataUrl,
     });
     await _ensureNativeEventSubscription();
@@ -176,10 +162,14 @@ final class SdkWrapper {
   }
 
   /// 网络半段：建立连接并完成首次同步。热启动在后台调用。
-  Future<void> connectRemote(String userId, String token) async {
+  Future<void> connectRemote(String userId, String? token) async {
     _lastState = await getConnectionState();
     debugPrint('flare sdk connect user=$userId state=${_lastState.name}');
-    await _client.connect({'userId': userId, 'token': token});
+    final explicit = token?.trim() ?? '';
+    await _client.connect({
+      'userId': userId,
+      if (explicit.isNotEmpty) 'token': explicit,
+    });
     await _waitForConnectionReady();
     final dataRoot = await _client.diagnostics.getDataRoot();
     final currentUser = await _client.currentUserId();
@@ -189,7 +179,7 @@ final class SdkWrapper {
     );
   }
 
-  Future<void> login(String userId, String token) async {
+  Future<void> login(String userId, [String? token]) async {
     await prepareLocal(userId);
     await connectRemote(userId, token);
   }
@@ -277,8 +267,6 @@ final class SdkWrapper {
       'conversationListError': ?conversationListError,
       'wsUrl': _wsUrl,
       'tenantId': _tenantId,
-      'tokenIssuer': _tokenIssuer,
-      'tokenTtlSecs': _tokenTtlSecs,
       'dataUrl': _dataUrl,
     };
   }
@@ -594,30 +582,6 @@ final class SdkWrapper {
       'expiresIn': expiresIn,
     });
     return '${result['path'] ?? ''}';
-  }
-
-  Future<String> generateCoreToken({
-    required String userId,
-    int? ttlSecs,
-  }) async {
-    if (_tokenSecret.isEmpty) {
-      throw StateError(
-        'SDK token secret is not configured; initialize SDK first.',
-      );
-    }
-    final effectiveTtlSecs = ttlSecs != null && ttlSecs > 0
-        ? ttlSecs
-        : _tokenTtlSecs;
-    final result = await _client.generateCoreToken(
-      core.CoreTokenRequest(
-        userId: userId,
-        secret: _tokenSecret,
-        issuer: _tokenIssuer,
-        ttlSecs: effectiveTtlSecs,
-        tenantId: _tenantId,
-      ),
-    );
-    return result.token;
   }
 
   Future<List<core.Conversation>> getConversations() async {
@@ -1390,18 +1354,6 @@ core.NetworkInterfaceKind? _networkInterfaceKind(String? value) {
     default:
       throw ArgumentError('Invalid network interface kind: $value');
   }
-}
-
-bool _isWeakTokenSecret(String secret) {
-  final normalized = secret.trim().toLowerCase();
-  return utf8.encode(secret).length < 32 ||
-      normalized == 'insecure-secret' ||
-      normalized == 'change-me' ||
-      normalized == 'change-me-in-production' ||
-      normalized == 'secret' ||
-      normalized == 'password' ||
-      normalized.contains('change-me') ||
-      normalized.startsWith('insecure');
 }
 
 Map<String, dynamic> _richDocNormalizedJson(core.RichDocV2Normalized value) {

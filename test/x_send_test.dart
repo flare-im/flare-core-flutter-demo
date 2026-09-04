@@ -42,8 +42,7 @@ void main() {
     final sdk = SdkWrapper();
     addTearDown(() async { await sdk.dispose(); await root.delete(recursive: true); });
     const d = AppDefaults.fallback;
-    await sdk.init(SdkConfig(wsUrl: ws, tenantId: d.tenantId, tokenSecret: d.devTokenSecret,
-        tokenIssuer: d.tokenIssuer, tokenTtlSecs: d.tokenTtlSecs, dataUrl: toFileDataUrl(root.path)))
+    await sdk.init(SdkConfig(wsUrl: ws, tenantId: d.tenantId, httpUrl: 'http://127.0.0.1:50050', dataUrl: toFileDataUrl(root.path)))
       .timeout(const Duration(seconds: 20));
     await sdk.login(user, token).timeout(const Duration(seconds: 30));
     await sdk.syncConversationSummaries().timeout(const Duration(seconds: 30));

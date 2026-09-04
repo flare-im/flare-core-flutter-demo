@@ -49,8 +49,7 @@ void main() {
 
     const d = AppDefaults.fallback;
     await sdk.init(SdkConfig(
-      wsUrl: ws!, tenantId: d.tenantId, tokenSecret: d.devTokenSecret,
-      tokenIssuer: d.tokenIssuer, tokenTtlSecs: d.tokenTtlSecs,
+      wsUrl: ws!, tenantId: d.tenantId, httpUrl: 'http://127.0.0.1:50050',
       dataUrl: toFileDataUrl(root.path),
     )).timeout(const Duration(seconds: 25));
     await sdk.login(user!, token!).timeout(const Duration(seconds: 30));

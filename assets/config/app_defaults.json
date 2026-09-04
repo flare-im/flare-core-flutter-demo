@@ -1,7 +1,5 @@
 {
   "defaultWsUrl": "ws://127.0.0.1:60051/ws",
   "tenantId": "0",
-  "devTokenSecret": "REPLACE_WITH_YOUR_DEV_TOKEN_SECRET",
-  "tokenIssuer": "flare-im-core",
-  "tokenTtlSecs": 3600
+  "defaultHttpUrl": "http://127.0.0.1:50050"
 }

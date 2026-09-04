@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// 用**服务端签好的 token** 连真实网关，跑通登录 → 会话列表 → 打开时间线。
 ///
-/// 与 sdk_login_business_flow_test 的区别：那条用本地 devTokenSecret 自签，
+/// 与 sdk_login_business_flow_test 的区别：那条不传 token（SDK 向网关签发），
 /// 只能连"自己握有密钥"的服务器；这条把 token 当输入，可以指向任意环境，
 /// 客户端不需要持有签名密钥（把密钥放进客户端等于让任何拿到安装包的人伪造身份）。
 ///
@@ -41,11 +41,7 @@ void main() {
           SdkConfig(
             wsUrl: wsUrl,
             tenantId: defaults.tenantId,
-            // 关键：这里仍传占位密钥。本条路径不该用到它 —— 如果实现哪天回退成
-            // 本地自签，服务端会直接验不过，这条用例就会红。
-            tokenSecret: defaults.devTokenSecret,
-            tokenIssuer: defaults.tokenIssuer,
-            tokenTtlSecs: defaults.tokenTtlSecs,
+            httpUrl: 'http://127.0.0.1:50050',
             dataUrl: toFileDataUrl(root.path),
           ),
         )

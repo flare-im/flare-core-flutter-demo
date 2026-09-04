@@ -28,14 +28,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   late final TextEditingController _serverUrlController;
   late final TextEditingController _quicUrlController;
   late final TextEditingController _tlsCaCertPathController;
-  /// 可选：直接填服务端签好的接入 token。
-  ///
-  /// 不填才回退到本地用 devTokenSecret 自签。留这个口子是因为把**签名密钥**放进
-  /// 客户端等于让任何拿到安装包的人都能伪造任意用户身份 —— 仓库自己的
-  /// mint_token.py 也是这么写的：密钥留在服务器，只把签好的 token 发出去。
-  /// web 端一直有这个输入框，原生端没有，于是只能连"自己握有密钥"的服务器。
+  /// 可选：应用托管形态——直接填业务后端签好的接入 token，SDK 原样使用。
+  /// 留空则 SDK 托管：核心向网关签发并自动刷新。客户端从不持有签名密钥。
   late final TextEditingController _accessTokenController;
-  late final TextEditingController _tokenSecretController;
 
   AppDefaults _defaults = AppDefaults.fallback;
   SdkTransportMode _transportMode = SdkTransportMode.websocket;
@@ -53,7 +48,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       text: AppDefaults.fallback.defaultQuicUrl,
     );
     _accessTokenController = TextEditingController();
-    _tokenSecretController = TextEditingController();
     _tlsCaCertPathController = TextEditingController(
       text: AppDefaults.fallback.defaultTlsCaCertPath,
     );
@@ -81,7 +75,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _quicUrlController.dispose();
     _tlsCaCertPathController.dispose();
     _accessTokenController.dispose();
-    _tokenSecretController.dispose();
     super.dispose();
   }
 
@@ -116,46 +109,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) {
         setState(() => _loginStage = '正在初始化 SDK 和本地数据库');
       }
-      // 高级区填了现成的接入 token 就直接用，不需要本地持有签名密钥。
+      // 应用托管：高级区粘贴了现成 token 就原样用；SDK 托管：留空，核心向网关签发并自动刷新。
       final pastedToken = _accessTokenController.text.trim();
-      // 密钥优先取运行时填的那个。做成输入而不是只读构建期常量：
-      // 打进安装包等于让任何拿到它的人伪造任意用户身份；填在这里只落在本机。
-      final typedSecret = _tokenSecretController.text.trim();
-      final effectiveSecret =
-          typedSecret.isNotEmpty ? typedSecret : _defaults.devTokenSecret;
-      // 占位密钥签出来的 token 服务端一律验不过。与其让用户拿着一个「登录失败」
-      // 去猜网络/账号哪里错了，不如在这里说清楚缺的是什么、去哪里拿。
-      if (pastedToken.isEmpty && typedSecret.isEmpty && !_defaults.hasUsableTokenSecret) {
-        throw StateError(
-          '既没有填「接入 token」，也没有填「签名密钥」：'
-          'assets/config/app_defaults.json 里的 devTokenSecret 仍是占位值。'
-          '推荐用前者——签名密钥留在服务器上，客户端只拿签好的 token；'
-          '要本地自签则填入 flare-im-core/logs/.dev-token-secret 的内容，'
-          '或以 --dart-define=FLARE_TOKEN_SECRET=... 启动。',
-        );
-      }
       await im.authEnsureSdkInitialized(
         wsUrl: wsUrl,
         transportMode: _transportMode,
         quicUrl: _effectiveQuicUrl,
         tenantId: _defaults.tenantId,
-        tokenSecret: effectiveSecret,
-        tokenIssuer: _defaults.tokenIssuer,
-        tokenTtlSecs: _defaults.tokenTtlSecs,
+        httpUrl: _defaults.httpUrl,
         tlsCaCertPath: _effectiveTlsCaCertPath,
         dataUrl: dataUrl,
       );
 
       final userId = _userIdController.text.trim();
-      if (mounted) {
-        setState(() => _loginStage = '正在生成登录凭证');
-      }
-      final token = pastedToken.isNotEmpty
-          ? pastedToken
-          : await im.authGenerateCoreToken(
-              userId,
-              expireSeconds: _defaults.tokenTtlSecs,
-            );
+      final String? token = pastedToken.isNotEmpty ? pastedToken : null;
       if (mounted) {
         setState(() => _loginStage = '正在登录并建立实时连接');
       }
@@ -557,7 +524,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               controller: _accessTokenController,
                               decoration: InputDecoration(
                                 hintText:
-                                    '留空则用本地 devTokenSecret 自签',
+                                    '留空则由 SDK 向网关签发并自动刷新',
                                 hintStyle: const TextStyle(
                                   color: FlareImDesign.loginHint,
                                   fontSize: 13,
@@ -587,44 +554,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                             ),
                             const SizedBox(height: 10),
-                            // 运行时填入服务端的签名密钥，之后只输入 user id 即可登录。
-                            // 做成输入而不是打进安装包：打进去等于让任何拿到安装包的人
-                            // 伪造任意用户身份；填在这里只落在本机。
-                            TextFormField(
-                              controller: _tokenSecretController,
-                              obscureText: true,
-                              decoration: InputDecoration(
-                                hintText:
-                                    '服务端的签名密钥 —— 用它按用户 ID 在本地签发',
-                                hintStyle: const TextStyle(
-                                  color: FlareImDesign.loginHint,
-                                  fontSize: 13,
-                                ),
-                                labelText: '签名密钥（可选）',
-                                filled: true,
-                                fillColor: FlareImDesign.loginInputFill,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: const BorderSide(
-                                    color: FlareImDesign.loginInputBorder,
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: const BorderSide(
-                                    color: FlareImDesign.loginInputBorder,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: const BorderSide(
-                                    color: FlareThemeTokens.primary,
-                                    width: 1.5,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            TextFormField(
+TextFormField(
                               controller: _tlsCaCertPathController,
                               decoration: InputDecoration(
                                 hintText:

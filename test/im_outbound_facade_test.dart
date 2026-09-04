@@ -214,15 +214,13 @@ final class _FakeAuthRepository implements IAuthRepository {
     required SdkTransportMode transportMode,
     required String quicUrl,
     required String tenantId,
-    required String tokenSecret,
-    required String tokenIssuer,
-    required int tokenTtlSecs,
+    required String httpUrl,
     String? tlsCaCertPath,
     String? dataUrl,
   }) async {}
 
   @override
-  Future<User> login(String userId, String token) async {
+  Future<User> login(String userId, [String? token]) async {
     return User(userId: userId, nickname: userId);
   }
 
@@ -232,7 +230,7 @@ final class _FakeAuthRepository implements IAuthRepository {
   }
 
   @override
-  Future<void> connectSession(String userId, String token) async {}
+  Future<void> connectSession(String userId, [String? token]) async {}
 
   @override
   Future<void> logout() async {}
@@ -243,10 +241,6 @@ final class _FakeAuthRepository implements IAuthRepository {
   @override
   Future<ConnectionState> getConnectionState() async =>
       ConnectionState.connected;
-
-  @override
-  Future<String> generateCoreToken(String userId, int expireSeconds) async =>
-      'token';
 
   @override
   Future<String> sdkVersion() async => 'test';

@@ -19,9 +19,7 @@ class AuthRepositoryImpl implements IAuthRepository {
     required SdkTransportMode transportMode,
     required String quicUrl,
     required String tenantId,
-    required String tokenSecret,
-    required String tokenIssuer,
-    required int tokenTtlSecs,
+    required String httpUrl,
     String? tlsCaCertPath,
     String? dataUrl,
   }) async {
@@ -33,15 +31,13 @@ class AuthRepositoryImpl implements IAuthRepository {
         tlsCaCertPath: tlsCaCertPath,
         dataUrl: dataUrl,
         tenantId: tenantId,
-        tokenSecret: tokenSecret,
-        tokenIssuer: tokenIssuer,
-        tokenTtlSecs: tokenTtlSecs,
+        httpUrl: httpUrl,
       ),
     );
   }
 
   @override
-  Future<User> login(String userId, String token) async {
+  Future<User> login(String userId, [String? token]) async {
     await _sdk.login(userId, token);
     return User(userId: userId, nickname: userId);
   }
@@ -53,7 +49,7 @@ class AuthRepositoryImpl implements IAuthRepository {
   }
 
   @override
-  Future<void> connectSession(String userId, String token) {
+  Future<void> connectSession(String userId, [String? token]) {
     return _sdk.connectRemote(userId, token);
   }
 
@@ -87,11 +83,6 @@ class AuthRepositoryImpl implements IAuthRepository {
       case core.ConnectionState.disconnected:
         return ConnectionState.disconnected;
     }
-  }
-
-  @override
-  Future<String> generateCoreToken(String userId, int expireSeconds) async {
-    return _sdk.generateCoreToken(userId: userId, ttlSecs: expireSeconds);
   }
 
   @override

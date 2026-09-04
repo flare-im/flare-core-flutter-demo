@@ -34,19 +34,14 @@ void main() {
             SdkConfig(
               wsUrl: 'ws://127.0.0.1:60051/ws',
               tenantId: '0',
-              tokenSecret: defaults.devTokenSecret,
-              tokenIssuer: defaults.tokenIssuer,
-              tokenTtlSecs: defaults.tokenTtlSecs,
+              httpUrl: 'http://127.0.0.1:50050',
               dataUrl: toFileDataUrl(root.path),
             ),
           )
           .timeout(const Duration(seconds: 5));
 
-      final token = await sdk
-          .generateCoreToken(userId: 'hugo', ttlSecs: defaults.tokenTtlSecs)
-          .timeout(const Duration(seconds: 5));
-
-      await sdk.login('hugo', token).timeout(const Duration(seconds: 15));
+      // 不传 token：SDK 向网关签发（联调网关需开 AUTH_DEV_ISSUE）。
+      await sdk.login('hugo').timeout(const Duration(seconds: 15));
       expect(await sdk.currentUserId(), 'hugo');
 
       final state = await sdk.getConnectionState();
@@ -57,8 +52,6 @@ void main() {
       final diagnostics = await sdk.diagnosticsSnapshot();
       expect(diagnostics['currentUserId'], 'hugo');
       expect(diagnostics['sessionActive'], isTrue);
-      expect(diagnostics['tokenIssuer'], defaults.tokenIssuer);
-      expect(diagnostics['tokenTtlSecs'], defaults.tokenTtlSecs);
 
       final capabilities = await sdk.listCapabilities().timeout(
         const Duration(seconds: 5),

@@ -24,7 +24,7 @@ class CurrentUserNotifier extends StateNotifier<User?> {
   CurrentUserNotifier(this._authService) : super(null);
 
   /// 登录
-  Future<void> login(String userId, String token) async {
+  Future<void> login(String userId, [String? token]) async {
     final user = await _authService.login(userId, token);
     state = user;
   }
@@ -76,9 +76,7 @@ class CurrentUserNotifier extends StateNotifier<User?> {
             ? profile.quicUrl
             : defaults.defaultQuicUrl,
         tenantId: defaults.tenantId,
-        tokenSecret: defaults.devTokenSecret,
-        tokenIssuer: defaults.tokenIssuer,
-        tokenTtlSecs: defaults.tokenTtlSecs,
+        httpUrl: defaults.httpUrl,
         tlsCaCertPath: profile.tlsCaCertPath.isNotEmpty
             ? profile.tlsCaCertPath
             : defaults.defaultTlsCaCertPath,
@@ -102,8 +100,8 @@ class CurrentUserNotifier extends StateNotifier<User?> {
 
   Future<void> _connectResumedSessionInBackground(String userId) async {
     try {
-      final token = await _authService.generateCoreToken(userId);
-      await _authService.connectSession(userId, token);
+      // 不传 token：SDK 向网关签发并自动刷新（应用托管形态由登录页显式传 token）。
+      await _authService.connectSession(userId);
       debugPrint('session resume connected');
     } catch (e) {
       // 离线也保持本地视图可用；连接状态由 connection watcher 呈现。

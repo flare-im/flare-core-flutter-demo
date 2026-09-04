@@ -47,9 +47,7 @@ class ImOutboundFacade {
     required SdkTransportMode transportMode,
     required String quicUrl,
     required String tenantId,
-    required String tokenSecret,
-    required String tokenIssuer,
-    required int tokenTtlSecs,
+    required String httpUrl,
     String? tlsCaCertPath,
     String? dataUrl,
   }) async {
@@ -64,9 +62,7 @@ class ImOutboundFacade {
         transportMode: transportMode,
         quicUrl: quicUrl,
         tenantId: tenantId,
-        tokenSecret: tokenSecret,
-        tokenIssuer: tokenIssuer,
-        tokenTtlSecs: tokenTtlSecs,
+        httpUrl: httpUrl,
         tlsCaCertPath: tlsCaCertPath,
         dataUrl: dataUrl,
       );
@@ -80,16 +76,7 @@ class ImOutboundFacade {
     }
   }
 
-  Future<String> authGenerateCoreToken(
-    String userId, {
-    int expireSeconds = 3600,
-  }) {
-    return _ref
-        .read(authServiceProvider)
-        .generateCoreToken(userId, expireSeconds: expireSeconds);
-  }
-
-  Future<void> authLogin(String userId, String token) async {
+  Future<void> authLogin(String userId, [String? token]) async {
     try {
       await _ref.read(currentUserProvider.notifier).login(userId, token);
       _ref.read(sdkRuntimeStatusProvider.notifier).applyLifecycle({

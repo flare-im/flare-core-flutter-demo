@@ -803,18 +803,12 @@ class SdkLabNotifier extends StateNotifier<SdkLabSnapshot> {
 
   Future<void> renewAccessToken({int ttlSecs = 3600}) {
     return runOperation('auth.update_access_token', (sdk) async {
+      // 客户端不再签发：SDK 托管 token 由核心到期前自动刷新；应用托管形态请在登录页粘贴 token。
       final userId = _requireCurrentUserId();
-      final token = await sdk.generateCoreToken(
-        userId: userId,
-        ttlSecs: ttlSecs,
+      throw StateError(
+        'access token for $userId is issued and refreshed by the SDK via the gateway (ttl hint $ttlSecs ignored); '
+        'paste a backend-issued token on the login screen to apply one manually',
       );
-      await sdk.updateAccessToken(token);
-      return {
-        'userId': userId,
-        'ttlSecs': ttlSecs,
-        'tokenLength': token.length,
-        'updated': true,
-      };
     });
   }
 

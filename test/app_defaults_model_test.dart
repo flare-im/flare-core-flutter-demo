@@ -10,11 +10,7 @@ void main() {
     expect(AppDefaults.fallback.defaultTlsCaCertPath, isEmpty);
     // 断言 fallback 是**不可用的占位**：原先只查长度 ≥32，一个真实密钥硬编码
     // 在这里照样能过 —— 事实上正是这么混进来的。
-    expect(AppDefaults.fallback.devTokenSecret,
-        AppDefaults.placeholderTokenSecret);
-    expect(AppDefaults.fallback.hasUsableTokenSecret, isFalse);
-    expect(AppDefaults.fallback.tokenIssuer, 'flare-im-core');
-    expect(AppDefaults.fallback.tokenTtlSecs, 3600);
+    expect(AppDefaults.fallback.httpUrl, 'http://127.0.0.1:50050');
     expect(AppDefaults.fallback.defaultUserId, isEmpty);
   });
 
@@ -24,10 +20,7 @@ void main() {
       'defaultQuicUrl': 'quic://127.0.0.1:60052',
       'defaultTlsCaCertPath': '/tmp/flare-server.crt',
       'tenantId': '0',
-      'devTokenSecret':
-          'local-test-token-secret-with-at-least-thirty-two-bytes',
-      'tokenIssuer': 'flare-im-core',
-      'tokenTtlSecs': 900,
+      'defaultHttpUrl': 'http://h:50050',
       'userId': 'bob',
     });
 
@@ -35,12 +28,7 @@ void main() {
     expect(defaults.defaultQuicUrl, 'quic://127.0.0.1:60052');
     expect(defaults.defaultTlsCaCertPath, '/tmp/flare-server.crt');
     expect(defaults.tenantId, '0');
-    expect(
-      defaults.devTokenSecret,
-      'local-test-token-secret-with-at-least-thirty-two-bytes',
-    );
-    expect(defaults.tokenIssuer, 'flare-im-core');
-    expect(defaults.tokenTtlSecs, 900);
+    expect(defaults.httpUrl, 'http://h:50050');
     expect(defaults.defaultUserId, 'bob');
   });
 
@@ -49,7 +37,7 @@ void main() {
       buildSdkTransportConfig(
         SdkConfig(
           wsUrl: ' ws://127.0.0.1:60051/ws ',
-          tokenSecret: AppDefaults.fallback.devTokenSecret,
+          httpUrl: AppDefaults.fallback.httpUrl,
         ),
       ),
       {
@@ -66,7 +54,7 @@ void main() {
           transportMode: SdkTransportMode.quic,
           quicUrl: ' quic://127.0.0.1:60052 ',
           tlsCaCertPath: ' /tmp/flare-server.crt ',
-          tokenSecret: AppDefaults.fallback.devTokenSecret,
+          httpUrl: AppDefaults.fallback.httpUrl,
         ),
       ),
       {
@@ -85,7 +73,7 @@ void main() {
           wsUrl: 'ws://127.0.0.1:60051/ws',
           transportMode: SdkTransportMode.race,
           quicUrl: 'quic://127.0.0.1:60052',
-          tokenSecret: AppDefaults.fallback.devTokenSecret,
+          httpUrl: AppDefaults.fallback.httpUrl,
         ),
       ),
       {

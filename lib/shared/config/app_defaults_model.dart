@@ -78,9 +78,7 @@ class AppDefaults {
     required this.defaultQuicUrl,
     required this.defaultTlsCaCertPath,
     required this.tenantId,
-    required this.devTokenSecret,
-    required this.tokenIssuer,
-    required this.tokenTtlSecs,
+    required this.httpUrl,
     required this.defaultUserId,
     required this.login,
   });
@@ -89,23 +87,22 @@ class AppDefaults {
   final String defaultQuicUrl;
   final String defaultTlsCaCertPath;
   final String tenantId;
-  final String devTokenSecret;
-  final String tokenIssuer;
-  final int tokenTtlSecs;
+
+  /// 网关 HTTP 基址：SDK 向 {httpUrl}/api/v1/auth/tokens 签发接入 token 并自动刷新。
+  final String httpUrl;
   final String defaultUserId;
   final LoginCopy login;
 
   /// 未配置密钥时的占位值。见 [fallback] 里的说明。
-  static const String placeholderTokenSecret = 'REPLACE_WITH_YOUR_DEV_TOKEN_SECRET';
 
   /// 当前密钥是否仍是占位值 —— 调用方应据此拒绝签发 token 并提示配置。
-  bool get hasUsableTokenSecret => devTokenSecret != placeholderTokenSecret;
 
   static const AppDefaults fallback = AppDefaults(
     defaultWsUrl: 'ws://127.0.0.1:60051/ws',
     defaultQuicUrl: 'quic://127.0.0.1:60052',
     defaultTlsCaCertPath: '',
     tenantId: '0',
+    httpUrl: 'http://127.0.0.1:50050',
     // 这里刻意放**占位串**而不是一个能用的密钥。
     //
     // 之前这里写的是某台开发机 logs/.dev-token-secret 里的真实值：它长得像正规
@@ -115,22 +112,14 @@ class AppDefaults {
     //
     // 本机的真实值在 flare-im-core/logs/.dev-token-secret（起后端时生成），
     // 或用 --dart-define=FLARE_TOKEN_SECRET=... 传入。
-    devTokenSecret: placeholderTokenSecret,
-    tokenIssuer: 'flare-im-core',
-    tokenTtlSecs: 3600,
     defaultUserId: '',
     login: LoginCopy.fallback,
   );
 
   static AppDefaults fromJson(Map<String, dynamic> json) {
-    const envTokenSecret = String.fromEnvironment('FLARE_TOKEN_SECRET');
-    const envTokenIssuer = String.fromEnvironment('FLARE_TOKEN_ISSUER');
+    const envHttpUrl = String.fromEnvironment('FLARE_HTTP_URL');
     const envQuicUrl = String.fromEnvironment('FLARE_QUIC_URL');
     const envTlsCaCertPath = String.fromEnvironment('FLARE_TLS_CA_CERT_PATH');
-    const envTokenTtlSecs = int.fromEnvironment(
-      'FLARE_TOKEN_TTL_SECS',
-      defaultValue: 0,
-    );
     final ws = (json['defaultWsUrl'] as String?)?.trim();
     final quic = _firstNonEmpty([
       envQuicUrl,
@@ -143,12 +132,11 @@ class AppDefaults {
       json['tlsCaCertPath'],
     ]);
     final tenant = (json['tenantId'] as String?)?.trim();
-    final tokenSecret = _firstNonEmpty([
-      envTokenSecret,
-      json['devTokenSecret'],
-      json['tokenSecret'],
+    final httpUrl = _firstNonEmpty([
+      envHttpUrl,
+      json['defaultHttpUrl'],
+      json['httpUrl'],
     ]);
-    final tokenIssuer = _firstNonEmpty([envTokenIssuer, json['tokenIssuer']]);
     final userId = (json['userId'] as String?)?.trim();
     final loginJson = json['login'] as Map<String, dynamic>?;
     return AppDefaults(
@@ -158,11 +146,7 @@ class AppDefaults {
       tenantId: (tenant != null && tenant.isNotEmpty)
           ? tenant
           : fallback.tenantId,
-      devTokenSecret: tokenSecret ?? fallback.devTokenSecret,
-      tokenIssuer: tokenIssuer ?? fallback.tokenIssuer,
-      tokenTtlSecs: envTokenTtlSecs > 0
-          ? envTokenTtlSecs
-          : _positiveInt(json['tokenTtlSecs'], fallback.tokenTtlSecs),
+      httpUrl: httpUrl ?? fallback.httpUrl,
       defaultUserId: (userId != null && userId.isNotEmpty)
           ? userId
           : fallback.defaultUserId,
@@ -179,12 +163,3 @@ String? _firstNonEmpty(Iterable<Object?> values) {
   return null;
 }
 
-int _positiveInt(Object? value, int fallback) {
-  final parsed = switch (value) {
-    final int v => v,
-    final num v => v.toInt(),
-    final String v => int.tryParse(v.trim()) ?? fallback,
-    _ => fallback,
-  };
-  return parsed > 0 ? parsed : fallback;
-}
