@@ -49,6 +49,7 @@ class ImOutboundFacade {
     required String tenantId,
     required String httpUrl,
     String? tlsCaCertPath,
+    String? tlsCaCert,
     String? dataUrl,
   }) async {
     _ref.read(sdkRuntimeStatusProvider.notifier).applyLifecycle({
@@ -64,6 +65,7 @@ class ImOutboundFacade {
         tenantId: tenantId,
         httpUrl: httpUrl,
         tlsCaCertPath: tlsCaCertPath,
+        tlsCaCert: tlsCaCert,
         dataUrl: dataUrl,
       );
       _ref.read(sdkRuntimeStatusProvider.notifier).applyLifecycle({

@@ -216,6 +216,7 @@ final class _FakeAuthRepository implements IAuthRepository {
     required String tenantId,
     required String httpUrl,
     String? tlsCaCertPath,
+    String? tlsCaCert,
     String? dataUrl,
   }) async {}
 

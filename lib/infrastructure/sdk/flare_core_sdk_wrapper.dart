@@ -13,6 +13,7 @@ final class SdkConfig {
     this.transportMode = SdkTransportMode.websocket,
     this.quicUrl = 'quic://127.0.0.1:60052',
     this.tlsCaCertPath,
+    this.tlsCaCert,
     this.dataUrl,
     this.tenantId = '0',
   });
@@ -21,6 +22,9 @@ final class SdkConfig {
   final SdkTransportMode transportMode;
   final String quicUrl;
   final String? tlsCaCertPath;
+
+  /// 内联信任 CA（PEM 或 base64 DER）：QUIC / wss 连自建 CA 签发证书的服务端时必配。
+  final String? tlsCaCert;
   final String? dataUrl;
   final String tenantId;
 
@@ -38,6 +42,8 @@ Map<String, Object?> buildSdkTransportConfig(SdkConfig config) {
   final tlsConfig = <String, Object?>{
     if (tlsCaCertPath != null && tlsCaCertPath.isNotEmpty)
       'tlsCaCertPath': tlsCaCertPath,
+    if (config.tlsCaCert != null && config.tlsCaCert!.trim().isNotEmpty)
+      'tlsCaCert': config.tlsCaCert!.trim(),
   };
   if (config.transportMode == SdkTransportMode.websocket) {
     return {

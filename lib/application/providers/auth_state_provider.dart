@@ -80,6 +80,7 @@ class CurrentUserNotifier extends StateNotifier<User?> {
         tlsCaCertPath: profile.tlsCaCertPath.isNotEmpty
             ? profile.tlsCaCertPath
             : defaults.defaultTlsCaCertPath,
+        tlsCaCert: defaults.defaultTlsCaCert,
         dataUrl: dataUrl,
       );
       final user = await _authService.prepareLocalSession(profile.userId);

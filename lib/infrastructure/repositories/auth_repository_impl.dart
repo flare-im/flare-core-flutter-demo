@@ -21,6 +21,7 @@ class AuthRepositoryImpl implements IAuthRepository {
     required String tenantId,
     required String httpUrl,
     String? tlsCaCertPath,
+    String? tlsCaCert,
     String? dataUrl,
   }) async {
     await _sdk.init(
@@ -29,6 +30,7 @@ class AuthRepositoryImpl implements IAuthRepository {
         transportMode: transportMode,
         quicUrl: quicUrl,
         tlsCaCertPath: tlsCaCertPath,
+        tlsCaCert: tlsCaCert,
         dataUrl: dataUrl,
         tenantId: tenantId,
         httpUrl: httpUrl,

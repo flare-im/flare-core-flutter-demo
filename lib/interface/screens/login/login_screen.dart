@@ -62,6 +62,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _serverUrlController.text = d.defaultWsUrl;
       _quicUrlController.text = d.defaultQuicUrl;
       _tlsCaCertPathController.text = d.defaultTlsCaCertPath;
+    _transportMode = d.defaultTransportMode;
       if (_userIdController.text.trim().isEmpty) {
         _userIdController.text = d.defaultUserId;
       }
@@ -118,6 +119,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         tenantId: _defaults.tenantId,
         httpUrl: _defaults.httpUrl,
         tlsCaCertPath: _effectiveTlsCaCertPath,
+        tlsCaCert: _defaults.defaultTlsCaCert,
         dataUrl: dataUrl,
       );
 

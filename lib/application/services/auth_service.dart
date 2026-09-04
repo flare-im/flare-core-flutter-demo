@@ -17,6 +17,7 @@ class AuthService {
     required String tenantId,
     required String httpUrl,
     String? tlsCaCertPath,
+    String? tlsCaCert,
     String? dataUrl,
   }) => _repo.initSdk(
     wsUrl: wsUrl,
@@ -25,6 +26,7 @@ class AuthService {
     tenantId: tenantId,
     httpUrl: httpUrl,
     tlsCaCertPath: tlsCaCertPath,
+    tlsCaCert: tlsCaCert,
     dataUrl: dataUrl,
   );
 

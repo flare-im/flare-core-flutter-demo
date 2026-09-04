@@ -1,3 +1,5 @@
+import 'package:flare_im/domain/value_objects/transport_mode.dart';
+
 /// 与 [assets/config/app_defaults.json] 结构一致；解析失败时使用 [AppDefaults.fallback]。
 class LoginCopy {
   const LoginCopy({
@@ -77,6 +79,8 @@ class AppDefaults {
     required this.defaultWsUrl,
     required this.defaultQuicUrl,
     required this.defaultTlsCaCertPath,
+    required this.defaultTlsCaCert,
+    required this.defaultTransportMode,
     required this.tenantId,
     required this.httpUrl,
     required this.defaultUserId,
@@ -86,6 +90,12 @@ class AppDefaults {
   final String defaultWsUrl;
   final String defaultQuicUrl;
   final String defaultTlsCaCertPath;
+
+  /// 内联信任 CA（PEM 或 base64 DER），FLARE_TLS_CA_CERT / defaultTlsCaCert。
+  final String defaultTlsCaCert;
+
+  /// 预选传输模式（websocket / quic / race），FLARE_TRANSPORT_MODE，联调自动化用。
+  final SdkTransportMode defaultTransportMode;
   final String tenantId;
 
   /// 网关 HTTP 基址：SDK 向 {httpUrl}/api/v1/auth/tokens 签发接入 token 并自动刷新。
@@ -101,6 +111,8 @@ class AppDefaults {
     defaultWsUrl: 'ws://127.0.0.1:60051/ws',
     defaultQuicUrl: 'quic://127.0.0.1:60052',
     defaultTlsCaCertPath: '',
+    defaultTlsCaCert: '',
+    defaultTransportMode: SdkTransportMode.websocket,
     tenantId: '0',
     httpUrl: 'http://127.0.0.1:50050',
     // 这里刻意放**占位串**而不是一个能用的密钥。
@@ -120,7 +132,10 @@ class AppDefaults {
     const envHttpUrl = String.fromEnvironment('FLARE_HTTP_URL');
     const envQuicUrl = String.fromEnvironment('FLARE_QUIC_URL');
     const envTlsCaCertPath = String.fromEnvironment('FLARE_TLS_CA_CERT_PATH');
-    final ws = (json['defaultWsUrl'] as String?)?.trim();
+    const envTlsCaCert = String.fromEnvironment('FLARE_TLS_CA_CERT');
+    const envWsUrl = String.fromEnvironment('FLARE_WS_URL');
+    const envTransportMode = String.fromEnvironment('FLARE_TRANSPORT_MODE');
+    final ws = _firstNonEmpty([envWsUrl, json['defaultWsUrl']]);
     final quic = _firstNonEmpty([
       envQuicUrl,
       json['defaultQuicUrl'],
@@ -143,6 +158,12 @@ class AppDefaults {
       defaultWsUrl: (ws != null && ws.isNotEmpty) ? ws : fallback.defaultWsUrl,
       defaultQuicUrl: quic ?? fallback.defaultQuicUrl,
       defaultTlsCaCertPath: tlsCaCertPath ?? fallback.defaultTlsCaCertPath,
+      defaultTlsCaCert: _firstNonEmpty([envTlsCaCert, json['defaultTlsCaCert'], json['tlsCaCert']]) ?? fallback.defaultTlsCaCert,
+      defaultTransportMode: SdkTransportMode.values.cast<SdkTransportMode?>().firstWhere(
+            (m) => m!.name == (_firstNonEmpty([envTransportMode, json['defaultTransportMode']]) ?? ''),
+            orElse: () => null,
+          ) ??
+          fallback.defaultTransportMode,
       tenantId: (tenant != null && tenant.isNotEmpty)
           ? tenant
           : fallback.tenantId,
