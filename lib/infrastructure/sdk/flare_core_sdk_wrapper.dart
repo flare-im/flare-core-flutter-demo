@@ -93,6 +93,11 @@ final class SdkWrapper {
   String _currentUserId = '';
   String _tenantId = '0';
   String _httpUrl = '';
+
+  /// init 时交给核心的完整 overlay。prepare 的 storeConfigJson 会让核心**重新 init**，
+  /// 所以必须原样重发同一份，否则 auth / tlsCaCert 这类字段会被一份只含 ws 的配置冲掉
+  /// （实测：QUIC 登录报 connect token required）。
+  Map<String, Object?>? _lastInitConfig;
   String? _dataUrl;
   core.ConnectionState _lastState = core.ConnectionState.disconnected;
   Map<String, Object?>? _nativeEventSubscription;
@@ -142,7 +147,7 @@ final class SdkWrapper {
     debugPrint(
       'flare sdk init transport=${_transportMode.name} ws=$_wsUrl http=$_httpUrl tenant=$_tenantId dataUrl=${_dataUrl ?? ''}',
     );
-    await _client.init({
+    _lastInitConfig = <String, Object?>{
       ...transportConfig,
       'tenantId': _tenantId,
       if (_httpUrl.isNotEmpty) 'httpUrl': _httpUrl,
@@ -150,7 +155,8 @@ final class SdkWrapper {
       // login 传了显式 token 时核心直接用它，不走签发。
       if (_httpUrl.isNotEmpty) 'auth': {'tokenEndpoint': _httpUrl},
       if (_dataUrl != null && _dataUrl!.isNotEmpty) 'dataUrl': _dataUrl,
-    });
+    };
+    await _client.init(Map<String, Object?>.from(_lastInitConfig!));
     await _ensureNativeEventSubscription();
     _initialized = true;
   }
@@ -1335,12 +1341,18 @@ final class SdkWrapper {
   }
 
   String _storeConfigJson() {
-    return jsonEncode({
-      'wsUrl': _wsUrl,
-      'tenantId': _tenantId,
-      if (_dataUrl != null && _dataUrl!.isNotEmpty) 'dataUrl': _dataUrl,
-    });
+    final config = _lastInitConfig ??
+        <String, Object?>{
+          'wsUrl': _wsUrl,
+          'tenantId': _tenantId,
+          if (_dataUrl != null && _dataUrl!.isNotEmpty) 'dataUrl': _dataUrl,
+        };
+    return jsonEncode(config);
   }
+
+  /// 测试用：prepare 重发的配置必须与 init 的一致。
+  @visibleForTesting
+  Map<String, Object?>? get lastInitConfigForTest => _lastInitConfig;
 }
 
 core.NetworkInterfaceKind? _networkInterfaceKind(String? value) {
