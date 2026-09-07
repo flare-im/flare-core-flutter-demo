@@ -10,6 +10,9 @@ class SavedSessionProfile {
   final SdkTransportMode transportMode;
   final String quicUrl;
   final String tlsCaCertPath;
+  // httpUrl 即 SDK 托管 token 端点(auth.tokenEndpoint):resume 重连靠它向网关签发。
+  // 不持久化则热启动回退默认地址,自定义网关登录后刷新会指错端点。
+  final String httpUrl;
 
   const SavedSessionProfile({
     required this.userId,
@@ -17,6 +20,7 @@ class SavedSessionProfile {
     required this.transportMode,
     required this.quicUrl,
     required this.tlsCaCertPath,
+    this.httpUrl = '',
   });
 }
 
@@ -26,6 +30,7 @@ class SavedSessionStore {
   static const _kTransportMode = 'flare.savedSession.transportMode';
   static const _kQuicUrl = 'flare.savedSession.quicUrl';
   static const _kTlsCaCertPath = 'flare.savedSession.tlsCaCertPath';
+  static const _kHttpUrl = 'flare.savedSession.httpUrl';
 
   static Future<void> save(SavedSessionProfile profile) async {
     final prefs = await SharedPreferences.getInstance();
@@ -34,6 +39,7 @@ class SavedSessionStore {
     await prefs.setString(_kTransportMode, profile.transportMode.name);
     await prefs.setString(_kQuicUrl, profile.quicUrl);
     await prefs.setString(_kTlsCaCertPath, profile.tlsCaCertPath);
+    await prefs.setString(_kHttpUrl, profile.httpUrl);
   }
 
   static Future<SavedSessionProfile?> load() async {
@@ -51,6 +57,7 @@ class SavedSessionStore {
       transportMode: transportMode,
       quicUrl: (prefs.getString(_kQuicUrl) ?? '').trim(),
       tlsCaCertPath: (prefs.getString(_kTlsCaCertPath) ?? '').trim(),
+      httpUrl: (prefs.getString(_kHttpUrl) ?? '').trim(),
     );
   }
 
@@ -61,5 +68,6 @@ class SavedSessionStore {
     await prefs.remove(_kTransportMode);
     await prefs.remove(_kQuicUrl);
     await prefs.remove(_kTlsCaCertPath);
+    await prefs.remove(_kHttpUrl);
   }
 }

@@ -76,7 +76,7 @@ class CurrentUserNotifier extends StateNotifier<User?> {
             ? profile.quicUrl
             : defaults.defaultQuicUrl,
         tenantId: defaults.tenantId,
-        httpUrl: defaults.httpUrl,
+        httpUrl: profile.httpUrl.isNotEmpty ? profile.httpUrl : defaults.httpUrl,
         tlsCaCertPath: profile.tlsCaCertPath.isNotEmpty
             ? profile.tlsCaCertPath
             : defaults.defaultTlsCaCertPath,

@@ -136,6 +136,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           transportMode: _transportMode,
           quicUrl: _effectiveQuicUrl,
           tlsCaCertPath: _effectiveTlsCaCertPath,
+          httpUrl: _defaults.httpUrl,
         ),
       );
 
