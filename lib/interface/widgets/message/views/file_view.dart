@@ -1,15 +1,18 @@
 import 'dart:math' as math;
 
+import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/domain/value_objects/conversation_type.dart';
 import 'package:flare_im/interface/theme/flare_im_design.dart';
 import 'package:flare_im/interface/widgets/message/message_style.dart';
+import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 文件消息。
 ///
 /// 参考设计：白底圆角描边气泡，左侧浅蓝圆角图标区，文件名 + 下行「大小 | 时间·状态」。
-class FileView extends StatelessWidget {
+class FileView extends ConsumerWidget {
   final String? url;
   final String? localPath;
   final String filename;
@@ -34,7 +37,8 @@ class FileView extends StatelessWidget {
   static const double _iconBox = 52;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final i18n = ref.watch(flareMessagesProvider).chat;
     final bg = isSelf
         ? MessageBubbleStyle.selfBubbleBackground(context)
         : MessageBubbleStyle.otherBubbleBackground(context);
@@ -105,7 +109,7 @@ class FileView extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              _sizeOrPlaceholder(),
+                              _sizeOrPlaceholder(i18n),
                               style: TextStyle(
                                 fontSize: 12,
                                 height: 1.2,
@@ -146,12 +150,12 @@ class FileView extends StatelessWidget {
     );
   }
 
-  String _sizeOrPlaceholder() {
+  String _sizeOrPlaceholder(FlareChatCopy i18n) {
     if (size != null) return _formatFileSize(size!);
     if ((localPath ?? '').trim().isNotEmpty || (url ?? '').trim().isNotEmpty) {
-      return '附件';
+      return i18n.attachment;
     }
-    return '文件';
+    return i18n.typeFile;
   }
 
   String _formatFileSize(int bytes) {

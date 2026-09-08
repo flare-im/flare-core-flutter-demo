@@ -1,17 +1,23 @@
 import 'dart:async';
 
 import 'package:flare_im/application/providers/im_outbound_provider.dart';
+import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/application/providers/message_state_provider.dart';
 import 'package:flare_im/application/selectors/message_list_view_model.dart';
 import 'package:flare_im/domain/entities/message.dart';
 import 'package:flare_im/domain/value_objects/message_content.dart';
 import 'package:flare_im/interface/widgets/message/message.dart';
+import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 在已加载会话消息中查找被引用方展示名（先按 `quotedMessageId` 命中，再按 `quotedSenderId`）。
-void _runReaction(BuildContext context, Future<void> Function() fn) {
+void _runReaction(
+  BuildContext context,
+  FlareChatCopy i18n,
+  Future<void> Function() fn,
+) {
   unawaited(() async {
     try {
       await fn();
@@ -19,7 +25,7 @@ void _runReaction(BuildContext context, Future<void> Function() fn) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('反应失败：$e')));
+      ).showSnackBar(SnackBar(content: Text(i18n.reactionFailed(e))));
     }
   }());
 }
@@ -85,6 +91,7 @@ class ChatMessageListItem extends ConsumerWidget {
     );
     if (vm == null) return const SizedBox.shrink();
 
+    final i18n = ref.watch(flareMessagesProvider).chat;
     final im = ref.read(imOutboundProvider);
     final message = vm.message;
     final me = currentUserId;
@@ -114,7 +121,9 @@ class ChatMessageListItem extends ConsumerWidget {
       showAvatar: vm.showAvatar,
       currentUserId: me,
       quotedSenderResolvedName: quotedSenderResolved,
-      onCopy: copyable ? () => copyMessageToClipboard(context, message) : null,
+      onCopy: copyable
+          ? () => copyMessageToClipboard(context, message, i18n)
+          : null,
       onReply: canReply && onStartReply != null
           ? () => onStartReply!(messageKey)
           : null,
@@ -125,7 +134,7 @@ class ChatMessageListItem extends ConsumerWidget {
         if (id.isEmpty) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('发送中，暂不可转发')));
+          ).showSnackBar(SnackBar(content: Text(i18n.forwardWhileSending)));
           return;
         }
         unawaited(() async {
@@ -134,17 +143,17 @@ class ChatMessageListItem extends ConsumerWidget {
               conversationId,
               messageIds: [id],
               merge: false,
-              title: '转发消息',
+              title: i18n.forwardMessage,
             );
             if (!context.mounted) return;
             ScaffoldMessenger.of(
               context,
-            ).showSnackBar(const SnackBar(content: Text('已转发到当前会话')));
+            ).showSnackBar(SnackBar(content: Text(i18n.forwardedToCurrent)));
           } catch (e) {
             if (!context.mounted) return;
             ScaffoldMessenger.of(
               context,
-            ).showSnackBar(SnackBar(content: Text('转发失败：$e')));
+            ).showSnackBar(SnackBar(content: Text(i18n.forwardFailed(e))));
           }
         }());
       },
@@ -159,12 +168,12 @@ class ChatMessageListItem extends ConsumerWidget {
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(
                     context,
-                  ).showSnackBar(const SnackBar(content: Text('已标记为重要')));
+                  ).showSnackBar(SnackBar(content: Text(i18n.markedImportant)));
                 } catch (e) {
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(
                     context,
-                  ).showSnackBar(SnackBar(content: Text('标记失败：$e')));
+                  ).showSnackBar(SnackBar(content: Text(i18n.markFailed(e))));
                 }
               }());
             }
@@ -181,7 +190,7 @@ class ChatMessageListItem extends ConsumerWidget {
       onPinForSelf: message.serverId.isNotEmpty && !pinned
           ? () => im.chatPinMessageForSelf(message.serverId)
           : null,
-      pinToggleLabel: pinned ? '取消置顶' : '置顶消息',
+      pinToggleLabel: pinned ? i18n.unpin : i18n.pinMessage,
       onResend:
           isSelf &&
               message.isFailed &&
@@ -195,19 +204,19 @@ class ChatMessageListItem extends ConsumerWidget {
               if (message.isRecalled) {
                 ScaffoldMessenger.of(
                   context,
-                ).showSnackBar(const SnackBar(content: Text('消息已撤回')));
+                ).showSnackBar(SnackBar(content: Text(i18n.recalled)));
                 return;
               }
               if (message.serverId.trim().isEmpty) {
                 ScaffoldMessenger.of(
                   context,
-                ).showSnackBar(const SnackBar(content: Text('发送中，请稍后再试撤回')));
+                ).showSnackBar(SnackBar(content: Text(i18n.recallWhileSending)));
                 return;
               }
               if (!message.canRecall) {
                 ScaffoldMessenger.of(
                   context,
-                ).showSnackBar(const SnackBar(content: Text('已超过可撤回时间')));
+                ).showSnackBar(SnackBar(content: Text(i18n.recallExpired)));
                 return;
               }
               im.chatRecall(conversationId, message.serverId);
@@ -231,12 +240,14 @@ class ChatMessageListItem extends ConsumerWidget {
       onReaction: message.serverId.isNotEmpty && !message.isRecalled
           ? (emoji) => _runReaction(
               context,
+              i18n,
               () => im.chatAddReaction(conversationId, message.serverId, emoji),
             )
           : null,
       onRemoveReaction: message.serverId.isNotEmpty && !message.isRecalled
           ? (emoji) => _runReaction(
               context,
+              i18n,
               () => im.chatRemoveReaction(
                 conversationId,
                 message.serverId,
@@ -276,13 +287,14 @@ class ChatMessageListItem extends ConsumerWidget {
   }
 }
 
-class _ChatTimeDivider extends StatelessWidget {
+class _ChatTimeDivider extends ConsumerWidget {
   const _ChatTimeDivider({required this.time});
 
   final DateTime time;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final i18n = ref.watch(flareMessagesProvider).chat;
     final light = Theme.of(context).brightness == Brightness.light;
     return Padding(
       padding: const EdgeInsets.only(top: 12, bottom: 8),
@@ -296,7 +308,7 @@ class _ChatTimeDivider extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(
-            _formatFeishuStyleDividerTime(time),
+            _formatFeishuStyleDividerTime(time, i18n),
             style: TextStyle(
               fontSize: 12,
               height: 1.2,
@@ -311,8 +323,8 @@ class _ChatTimeDivider extends StatelessWidget {
     );
   }
 
-  /// 飞书式：当日仅 `HH:mm`；昨天带「昨天」；同年 `M月d日`；跨年带年份。
-  String _formatFeishuStyleDividerTime(DateTime time) {
+  /// 飞书式：当日仅 `HH:mm`；昨天带「昨天」；同年 `M月d日`；跨年带年份（文案随语言）。
+  String _formatFeishuStyleDividerTime(DateTime time, FlareChatCopy i18n) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final day = DateTime(time.year, time.month, time.day);
@@ -320,8 +332,10 @@ class _ChatTimeDivider extends StatelessWidget {
     String two(int n) => n.toString().padLeft(2, '0');
     final hm = '${two(time.hour)}:${two(time.minute)}';
     if (day == today) return hm;
-    if (day == yesterday) return '昨天 $hm';
-    if (time.year == now.year) return '${time.month}月${time.day}日 $hm';
-    return '${time.year}年${time.month}月${time.day}日 $hm';
+    if (day == yesterday) return i18n.yesterdayAt(hm);
+    if (time.year == now.year) {
+      return i18n.dateMonthDayAt(time.month, time.day, hm);
+    }
+    return i18n.dateFullAt(time.year, time.month, time.day, hm);
   }
 }

@@ -1,6 +1,8 @@
+import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/interface/widgets/composer/sdk_message_build_catalog.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class SdkMessageBuildDraft {
   final SdkMessageBuildKind kind;
@@ -19,21 +21,24 @@ Future<SdkMessageBuildDraft?> showSdkMessageBuildSheet(BuildContext context) {
   );
 }
 
-class _SdkMessageBuildSheet extends StatefulWidget {
+class _SdkMessageBuildSheet extends ConsumerStatefulWidget {
   const _SdkMessageBuildSheet();
 
   @override
-  State<_SdkMessageBuildSheet> createState() => _SdkMessageBuildSheetState();
+  ConsumerState<_SdkMessageBuildSheet> createState() =>
+      _SdkMessageBuildSheetState();
 }
 
-class _SdkMessageBuildSheetState extends State<_SdkMessageBuildSheet> {
+class _SdkMessageBuildSheetState extends ConsumerState<_SdkMessageBuildSheet> {
   late SdkMessageBuildCatalogEntry _entry;
   Map<String, TextEditingController> _controllers = {};
 
   @override
   void initState() {
     super.initState();
-    _setEntry(sdkMessageBuildCatalog.first);
+    _setEntry(
+      sdkMessageBuildCatalog(ref.read(flareMessagesProvider).composer).first,
+    );
   }
 
   @override
@@ -63,6 +68,7 @@ class _SdkMessageBuildSheetState extends State<_SdkMessageBuildSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final c = ref.watch(flareMessagesProvider).composer;
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
     return Padding(
       padding: EdgeInsets.only(left: 12, right: 12, bottom: bottom + 12),
@@ -94,23 +100,23 @@ class _SdkMessageBuildSheetState extends State<_SdkMessageBuildSheet> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'SDK 消息类型',
-                            style: TextStyle(
+                            c.sdkMessageType,
+                            style: const TextStyle(
                               fontSize: 20,
                               height: 1.2,
                               fontWeight: FontWeight.w800,
                               color: FlareThemeTokens.textPrimary,
                             ),
                           ),
-                          SizedBox(height: 3),
+                          const SizedBox(height: 3),
                           Text(
-                            '发送 Composer 主流程之外的保留消息能力',
-                            style: TextStyle(
+                            c.sdkMessageDesc,
+                            style: const TextStyle(
                               fontSize: 12,
                               height: 1.25,
                               color: FlareThemeTokens.textSecondary,
@@ -120,7 +126,7 @@ class _SdkMessageBuildSheetState extends State<_SdkMessageBuildSheet> {
                       ),
                     ),
                     IconButton(
-                      tooltip: '关闭',
+                      tooltip: c.close,
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(Icons.close_rounded),
                     ),
@@ -138,7 +144,7 @@ class _SdkMessageBuildSheetState extends State<_SdkMessageBuildSheet> {
                         initialValue: _entry,
                         isExpanded: true,
                         items: [
-                          for (final entry in sdkMessageBuildCatalog)
+                          for (final entry in sdkMessageBuildCatalog(c))
                             DropdownMenuItem(
                               value: entry,
                               child: Text('${entry.group} · ${entry.label}'),
@@ -146,7 +152,7 @@ class _SdkMessageBuildSheetState extends State<_SdkMessageBuildSheet> {
                         ],
                         onChanged: _onEntryChanged,
                         decoration: _fieldDecoration(
-                          '消息类型',
+                          c.messageType,
                           Icons.category_outlined,
                         ),
                       ),
@@ -201,7 +207,7 @@ class _SdkMessageBuildSheetState extends State<_SdkMessageBuildSheet> {
                           ),
                         ),
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('取消'),
+                        child: Text(c.cancel),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -228,7 +234,7 @@ class _SdkMessageBuildSheetState extends State<_SdkMessageBuildSheet> {
                           );
                         },
                         icon: const Icon(Icons.send_rounded, size: 18),
-                        label: const Text('创建并发送'),
+                        label: Text(c.createAndSend),
                       ),
                     ),
                   ],

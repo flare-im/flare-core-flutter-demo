@@ -1,17 +1,19 @@
 import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/domain/value_objects/conversation_type.dart';
 import 'package:flare_im/infrastructure/media/network_image_policy.dart';
 import 'package:flare_im/interface/theme/flare_im_design.dart';
 import 'package:flare_im/interface/widgets/message/message_style.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 名片 / 联系人卡片。
 ///
 /// 上：浅底头像区（姓名 + 副标题）；下：白底「发送名片」与己方时间/送达状态；外框与聊天气泡统一。
-class CardView extends StatelessWidget {
+class CardView extends ConsumerWidget {
   final bool isSelf;
   final String id;
   final String? title;
@@ -64,7 +66,8 @@ class CardView extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final i18n = ref.watch(flareMessagesProvider).chat;
     final light = Theme.of(context).brightness == Brightness.light;
     final readIconColor = light
         ? FlareImDesign.messageBubbleSenderFill
@@ -169,9 +172,9 @@ class CardView extends StatelessWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          '发送名片',
-                          style: TextStyle(
+                        Text(
+                          i18n.sendCard,
+                          style: const TextStyle(
                             fontSize: 12,
                             height: 1.25,
                             fontWeight: FontWeight.w500,

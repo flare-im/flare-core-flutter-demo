@@ -1,18 +1,21 @@
 import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/domain/value_objects/conversation_type.dart';
 import 'package:flare_im/infrastructure/media/network_image_policy.dart';
 import 'package:flare_im/interface/theme/flare_im_design.dart';
 import 'package:flare_im/interface/widgets/message/message_style.dart';
+import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 小程序卡片。
 ///
 /// 有 [thumbnailUrl] 时顶部封面 + 底部叠字标题；无图时展示明确「小程序」标识与 [title]。
 /// 外框与聊天气泡统一；宽度随内容且不超过父级（≤72% 屏宽）。
-class MiniProgramView extends StatelessWidget {
+class MiniProgramView extends ConsumerWidget {
   final bool isSelf;
   final String appId;
   final String? title;
@@ -34,10 +37,10 @@ class MiniProgramView extends StatelessWidget {
 
   static const double _coverHeight = 132;
 
-  String _titleLine() {
+  String _titleLine(FlareChatCopy i18n) {
     final t = title?.trim();
     if (t != null && t.isNotEmpty) return t;
-    return '小程序';
+    return i18n.typeMiniProgram;
   }
 
   String? _descriptionLine() {
@@ -61,7 +64,8 @@ class MiniProgramView extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final i18n = ref.watch(flareMessagesProvider).chat;
     final light = Theme.of(context).brightness == Brightness.light;
     final readIconColor = light
         ? FlareImDesign.messageBubbleSenderFill
@@ -103,8 +107,8 @@ class MiniProgramView extends StatelessWidget {
                 borderRadius: BorderRadius.circular(bubbleR),
                 onTap: () {
                   final hint = appId.trim().isNotEmpty
-                      ? '打开小程序（$appId）功能开发中'
-                      : '打开小程序功能开发中';
+                      ? i18n.miniProgramWipId(appId)
+                      : i18n.miniProgramWip;
                   ScaffoldMessenger.maybeOf(
                     context,
                   )?.showSnackBar(SnackBar(content: Text(hint)));
@@ -178,7 +182,7 @@ class MiniProgramView extends StatelessWidget {
                                   right: hPad,
                                   bottom: 10,
                                   child: Text(
-                                    _titleLine(),
+                                    _titleLine(i18n),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
@@ -225,9 +229,9 @@ class MiniProgramView extends StatelessWidget {
                                     ),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
-                                  child: const Text(
-                                    '小程序',
-                                    style: TextStyle(
+                                  child: Text(
+                                    i18n.typeMiniProgram,
+                                    style: const TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
                                       height: 1.2,
@@ -252,7 +256,7 @@ class MiniProgramView extends StatelessWidget {
                                 maxWidth: innerTextMax,
                               ),
                               child: Text(
-                                _titleLine(),
+                                _titleLine(i18n),
                                 maxLines: 3,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -305,9 +309,9 @@ class MiniProgramView extends StatelessWidget {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                '点击打开小程序 →',
-                                style: TextStyle(
+                              Text(
+                                i18n.tapToOpenMiniProgram,
+                                style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                   color: FlareThemeTokens.primary,

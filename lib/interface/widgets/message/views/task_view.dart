@@ -1,11 +1,13 @@
+import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/interface/theme/flare_im_design.dart';
 import 'package:flare_im/interface/widgets/message/business_system/business_message_format.dart';
 import 'package:flare_im/interface/widgets/message/business_system/system_feature_bridge.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 分配任务卡片：顶栏 + 分隔线 + 标题与元数据行 + 底部「查看任务」（不展示 ID）。
-class TaskView extends StatelessWidget {
+class TaskView extends ConsumerWidget {
   static const double _maxWidth = 320;
   static const double _radius = 12;
   static const double _accentW = 4;
@@ -29,10 +31,13 @@ class TaskView extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final headline = (title ?? '').trim().isNotEmpty ? title!.trim() : '任务';
+  Widget build(BuildContext context, WidgetRef ref) {
+    final i18n = ref.watch(flareMessagesProvider).chat;
+    final headline = (title ?? '').trim().isNotEmpty
+        ? title!.trim()
+        : i18n.typeTask;
     final rawStatus = (detail ?? '').trim();
-    final statusLabel = formatTaskStatusLabel(rawStatus);
+    final statusLabel = formatTaskStatusLabel(rawStatus, i18n);
     final pill = taskStatusPillVariant(rawStatus);
     final pillColors = taskStatusPillColors(pill);
     final participantLine = participantUserIds
@@ -61,7 +66,7 @@ class TaskView extends StatelessWidget {
         .toList();
 
     return Semantics(
-      label: '任务：$headline',
+      label: i18n.taskPrefix(headline),
       button: hasTaskId,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: _maxWidth),
@@ -94,17 +99,17 @@ class TaskView extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Row(
+                          Row(
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.check_box_rounded,
                                 size: 22,
                                 color: _accent,
                               ),
-                              SizedBox(width: 8),
+                              const SizedBox(width: 8),
                               Text(
-                                '分配任务',
-                                style: TextStyle(
+                                i18n.assignTask,
+                                style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
                                   color: Color(0xFF1F2937),
@@ -144,7 +149,7 @@ class TaskView extends StatelessWidget {
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
-                                    '截止：$deadline',
+                                    i18n.deadlinePrefix(deadline),
                                     style: const TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
@@ -169,7 +174,7 @@ class TaskView extends StatelessWidget {
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
-                                    '指派给：$assignee',
+                                    i18n.assignedTo(assignee),
                                     style: const TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w500,
@@ -187,9 +192,9 @@ class TaskView extends StatelessWidget {
                             spacing: 8,
                             runSpacing: 4,
                             children: [
-                              const Text(
-                                '状态',
-                                style: TextStyle(
+                              Text(
+                                i18n.statusLabel,
+                                style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                   color: FlareThemeTokens.textTertiary,
@@ -220,7 +225,7 @@ class TaskView extends StatelessWidget {
                           if (participantLine.isNotEmpty) ...[
                             const SizedBox(height: 8),
                             Text(
-                              '参与人 · $participantLine',
+                              i18n.scheduleParticipants(participantLine),
                               style: const TextStyle(
                                 fontSize: 12,
                                 height: 1.4,
@@ -236,9 +241,9 @@ class TaskView extends StatelessWidget {
                               ).copyWith(dividerColor: Colors.transparent),
                               child: ExpansionTile(
                                 tilePadding: EdgeInsets.zero,
-                                title: const Text(
-                                  '业务参数',
-                                  style: TextStyle(
+                                title: Text(
+                                  i18n.businessParams,
+                                  style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500,
                                     color: FlareThemeTokens.textSecondary,
@@ -294,9 +299,9 @@ class TaskView extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              child: const Text(
-                                '查看任务',
-                                style: TextStyle(
+                              child: Text(
+                                i18n.viewTask,
+                                style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                 ),

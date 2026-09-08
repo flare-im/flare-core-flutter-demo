@@ -1,8 +1,11 @@
+import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/interface/widgets/message/business_system/system_feature_bridge.dart';
+import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 群公告：浅黄底、喇叭标题、分隔线、正文、底栏发布者与时间。
-class AnnouncementView extends StatelessWidget {
+class AnnouncementView extends ConsumerWidget {
   static const double _maxWidth = 320;
   static const double _radius = 12;
   static const Color _cream = Color(0xFFFFF8E7);
@@ -26,14 +29,14 @@ class AnnouncementView extends StatelessWidget {
     this.footerTimeText,
   });
 
-  String _publisherLine() {
+  String _publisherLine(FlareChatCopy i18n) {
     final fromMeta =
         metadata['publisher']?.trim() ??
         metadata['postedBy']?.trim() ??
         metadata['publisherLabel']?.trim() ??
         metadata['footerLeft']?.trim();
     if (fromMeta != null && fromMeta.isNotEmpty) return fromMeta;
-    return '群主 发布';
+    return i18n.publishedByOwner;
   }
 
   String _timeLine() {
@@ -44,16 +47,17 @@ class AnnouncementView extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final i18n = ref.watch(flareMessagesProvider).chat;
     final titleLine = (headline ?? '').trim();
     final b = (body ?? '').trim();
     final time = _timeLine();
     final ariaTitle = titleLine.isNotEmpty
         ? titleLine
-        : (b.isNotEmpty ? b : '群公告');
+        : (b.isNotEmpty ? b : i18n.groupAnnouncement);
 
     return Semantics(
-      label: '公告：$ariaTitle',
+      label: i18n.announcementA11y(ariaTitle),
       button: announcementId != null && announcementId!.isNotEmpty,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: _maxWidth),
@@ -78,13 +82,17 @@ class AnnouncementView extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.campaign_outlined, size: 22, color: _accent),
-                      SizedBox(width: 8),
+                      const Icon(
+                        Icons.campaign_outlined,
+                        size: 22,
+                        color: _accent,
+                      ),
+                      const SizedBox(width: 8),
                       Text(
-                        '群公告',
-                        style: TextStyle(
+                        i18n.groupAnnouncement,
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: _accent,
@@ -126,7 +134,7 @@ class AnnouncementView extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          _publisherLine(),
+                          _publisherLine(i18n),
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -172,9 +180,9 @@ class AnnouncementView extends StatelessWidget {
                           ),
                         ),
                       ),
-                      child: const Text(
-                        '查看详情',
-                        style: TextStyle(
+                      child: Text(
+                        i18n.viewDetails,
+                        style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),

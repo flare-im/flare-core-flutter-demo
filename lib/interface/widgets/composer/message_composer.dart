@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flare_im/application/providers/chat_outbound_provider.dart';
+import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/infrastructure/media/plain_text_markdown_detect.dart';
 import 'package:flare_im/interface/widgets/composer/composer_emoji_span_builder.dart';
 import 'package:flare_im/interface/widgets/composer/composer_inline_text_field.dart';
@@ -9,6 +10,7 @@ import 'package:flare_im/interface/widgets/composer/composer_reply_strip.dart';
 import 'package:flare_im/interface/widgets/composer/composer_sheets.dart';
 import 'package:flare_im/interface/widgets/composer/draft_idle_scheduler.dart';
 import 'package:flare_im/interface/widgets/composer/rich_text_composer_formatter.dart';
+import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -64,6 +66,9 @@ class MessageComposer extends ConsumerStatefulWidget {
 class MessageComposerState extends ConsumerState<MessageComposer> {
   static const Duration _draftIdleDelay = Duration(seconds: 5);
 
+  /// 一次性读取语言文案（回调/弹窗等非 build 响应式路径）；build 内用 watch 版。
+  FlareComposerCopy get _c => ref.read(flareMessagesProvider).composer;
+
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
   Timer? _typingIdleTimer;
@@ -89,7 +94,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
 
   String get _effectiveHint {
     final name = widget.composeTargetName?.trim();
-    if (name != null && name.isNotEmpty) return '发送给 $name';
+    if (name != null && name.isNotEmpty) return _c.hint(name);
     return widget.placeholder;
   }
 
@@ -232,7 +237,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text('$name（占位）')));
+    ).showSnackBar(SnackBar(content: Text(_c.placeholderName(name))));
   }
 
   void _pickMedia(ComposerPickMediaKind kind) {
@@ -240,16 +245,16 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
       widget.onPickMedia!(kind);
     } else {
       final label = switch (kind) {
-        ComposerPickMediaKind.imageOrVideo => '相册（图片与视频）',
-        ComposerPickMediaKind.image => '图片',
-        ComposerPickMediaKind.video => '视频',
-        ComposerPickMediaKind.audio => '语音',
-        ComposerPickMediaKind.file => '本地文件',
-        ComposerPickMediaKind.folder => '本地文件夹',
+        ComposerPickMediaKind.imageOrVideo => _c.albumImageVideo,
+        ComposerPickMediaKind.image => _c.image,
+        ComposerPickMediaKind.video => _c.video,
+        ComposerPickMediaKind.audio => _c.voice,
+        ComposerPickMediaKind.file => _c.localFile,
+        ComposerPickMediaKind.folder => _c.localFolder,
       };
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('$label（占位）')));
+      ).showSnackBar(SnackBar(content: Text(_c.placeholderLabel(label))));
     }
   }
 
@@ -324,6 +329,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
       disabled: widget.disabled,
       onChanged: _onTextChanged,
       onSend: () => _submit(_controller.text),
+      i18n: _c,
       onEmojiSticker: () => _showEmojiStickerSheet(context),
       onPickMedia: _pickMedia,
       onInsertAtCursor: _insertAtCursor,
@@ -542,7 +548,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
                   children: [
                     _formatChip(
                       child: _formatText('Aa'),
-                      tooltip: '标题',
+                      tooltip: _c.heading,
                       selected: _richFormatting.isBlockActive(
                         RichComposerBlockStyle.heading,
                       ),
@@ -552,7 +558,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
                     const SizedBox(width: 6),
                     _formatChip(
                       child: _formatText('B'),
-                      tooltip: '加粗',
+                      tooltip: _c.bold,
                       selected: _richFormatting.isInlineActive(
                         RichComposerInlineStyle.bold,
                       ),
@@ -562,7 +568,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
                     const SizedBox(width: 6),
                     _formatChip(
                       child: _formatText('S', strike: true),
-                      tooltip: '删除线',
+                      tooltip: _c.strike,
                       selected: _richFormatting.isInlineActive(
                         RichComposerInlineStyle.strike,
                       ),
@@ -572,7 +578,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
                     const SizedBox(width: 6),
                     _formatChip(
                       child: _formatText('I', italic: true),
-                      tooltip: '斜体',
+                      tooltip: _c.italic,
                       selected: _richFormatting.isInlineActive(
                         RichComposerInlineStyle.italic,
                       ),
@@ -582,7 +588,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
                     const SizedBox(width: 6),
                     _formatChip(
                       child: const Icon(Icons.format_list_bulleted_rounded),
-                      tooltip: '无序列表',
+                      tooltip: _c.bulletList,
                       selected: _richFormatting.isBlockActive(
                         RichComposerBlockStyle.bulletList,
                       ),
@@ -592,7 +598,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
                     const SizedBox(width: 6),
                     _formatChip(
                       child: const Icon(Icons.format_list_numbered_rounded),
-                      tooltip: '有序列表',
+                      tooltip: _c.orderedList,
                       selected: _richFormatting.isBlockActive(
                         RichComposerBlockStyle.orderedList,
                       ),
@@ -602,7 +608,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
                     const SizedBox(width: 6),
                     _formatChip(
                       child: const Icon(Icons.format_quote_rounded),
-                      tooltip: '引用',
+                      tooltip: _c.quote,
                       selected: _richFormatting.isBlockActive(
                         RichComposerBlockStyle.quote,
                       ),
@@ -612,7 +618,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
                     const SizedBox(width: 6),
                     _formatChip(
                       child: const Icon(Icons.code_rounded),
-                      tooltip: '代码块',
+                      tooltip: _c.codeBlock,
                       selected: _richFormatting.isBlockActive(
                         RichComposerBlockStyle.codeBlock,
                       ),
@@ -622,7 +628,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
                     const SizedBox(width: 6),
                     _formatChip(
                       child: _formatText('{}'),
-                      tooltip: '行内代码',
+                      tooltip: _c.inlineCode,
                       selected: _richFormatting.isInlineActive(
                         RichComposerInlineStyle.inlineCode,
                       ),
@@ -633,7 +639,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
                     const SizedBox(width: 6),
                     _formatChip(
                       child: const Icon(Icons.link_rounded),
-                      tooltip: '链接',
+                      tooltip: _c.link,
                       selected: _richFormatting.isInlineActive(
                         RichComposerInlineStyle.link,
                       ),
@@ -756,7 +762,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
                 childAspectRatio: 1.05,
                 children: [
                   _moreGridTileAligned(
-                    label: '文件',
+                    label: _c.file,
                     icon: Icons.folder_outlined,
                     background: FlareThemeTokens.warning,
                     onTap: () {
@@ -765,7 +771,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
                     },
                   ),
                   _moreGridTileAligned(
-                    label: '视频',
+                    label: _c.video,
                     icon: Icons.videocam_outlined,
                     background: FlareThemeTokens.primaryHover,
                     onTap: () {
@@ -774,7 +780,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
                     },
                   ),
                   _moreGridTileAligned(
-                    label: '位置',
+                    label: _c.location,
                     icon: Icons.location_on_outlined,
                     background: FlareThemeTokens.info,
                     onTap: () {
@@ -794,7 +800,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
                     },
                   ),
                   _moreGridTileAligned(
-                    label: '名片',
+                    label: _c.contact,
                     icon: Icons.badge_outlined,
                     background: FlareThemeTokens.primaryActive,
                     onTap: () {
@@ -814,7 +820,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
                     },
                   ),
                   _moreGridTileAligned(
-                    label: '日程',
+                    label: _c.schedule,
                     icon: Icons.event_note_outlined,
                     background: FlareThemeTokens.important,
                     onTap: () {
@@ -834,7 +840,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
                     },
                   ),
                   _moreGridTileAligned(
-                    label: '任务',
+                    label: _c.task,
                     icon: Icons.task_alt_outlined,
                     background: FlareThemeTokens.robot,
                     onTap: () {
@@ -854,57 +860,57 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
                     },
                   ),
                   _moreGridTileAligned(
-                    label: '投票',
+                    label: _c.vote,
                     icon: Icons.poll_outlined,
                     background: FlareThemeTokens.success,
                     onTap: () {
                       _closeMoreGrid();
-                      _snackComingSoon('投票');
+                      _snackComingSoon(_c.vote);
                     },
                   ),
                   _moreGridTileAligned(
-                    label: '链接',
+                    label: _c.link,
                     icon: Icons.link_rounded,
                     background: FlareThemeTokens.info,
                     onTap: () {
                       _closeMoreGrid();
-                      _snackComingSoon('链接');
+                      _snackComingSoon(_c.link);
                     },
                   ),
                   _moreGridTileAligned(
-                    label: '小程序',
+                    label: _c.miniProgram,
                     icon: Icons.apps_rounded,
                     background: FlareThemeTokens.primaryHover,
                     onTap: () {
                       _closeMoreGrid();
-                      _snackComingSoon('小程序');
+                      _snackComingSoon(_c.miniProgram);
                     },
                   ),
                   _moreGridTileAligned(
-                    label: '话题',
+                    label: _c.topic,
                     icon: Icons.forum_outlined,
                     background: FlareThemeTokens.robot,
                     onTap: () {
                       _closeMoreGrid();
-                      _snackComingSoon('话题');
+                      _snackComingSoon(_c.topic);
                     },
                   ),
                   _moreGridTileAligned(
-                    label: '通知',
+                    label: _c.notification,
                     icon: Icons.notifications_none_rounded,
                     background: FlareThemeTokens.warning,
                     onTap: () {
                       _closeMoreGrid();
-                      _snackComingSoon('通知');
+                      _snackComingSoon(_c.notification);
                     },
                   ),
                   _moreGridTileAligned(
-                    label: '公告',
+                    label: _c.announcement,
                     icon: Icons.campaign_outlined,
                     background: FlareThemeTokens.important,
                     onTap: () {
                       _closeMoreGrid();
-                      _snackComingSoon('公告');
+                      _snackComingSoon(_c.announcement);
                     },
                   ),
                 ],
@@ -934,7 +940,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
             child: Center(
               child: _toolbarIconButton(
                 icon: Icons.emoji_emotions_outlined,
-                tooltip: '表情与贴纸',
+                tooltip: _c.emojiSticker,
                 onPressed: () {
                   _closeMoreGrid();
                   unawaited(_openEmojiStickerPanel());
@@ -946,7 +952,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
             child: Center(
               child: _toolbarIconButton(
                 icon: Icons.alternate_email,
-                tooltip: '@提及',
+                tooltip: _c.mention,
                 onPressed: () => _insertAtCursor('@'),
               ),
             ),
@@ -955,7 +961,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
             child: Center(
               child: _toolbarIconButton(
                 icon: Icons.mic_none_outlined,
-                tooltip: '语音',
+                tooltip: _c.voice,
                 onPressed: () {
                   _closeMoreGrid();
                   _pickMedia(ComposerPickMediaKind.audio);
@@ -967,7 +973,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
             child: Center(
               child: _toolbarIconButton(
                 icon: Icons.image_outlined,
-                tooltip: '图片',
+                tooltip: _c.image,
                 onPressed: () {
                   _closeMoreGrid();
                   _pickMedia(ComposerPickMediaKind.image);
@@ -979,7 +985,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
             child: Center(
               child: _toolbarIconButton(
                 icon: Icons.text_fields_rounded,
-                tooltip: '富文本',
+                tooltip: _c.richText,
                 selected: _richTextEnabled,
                 onPressed: _toggleRichText,
               ),
@@ -989,7 +995,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
             child: Center(
               child: _toolbarIconButton(
                 icon: _moreGridOpen ? Icons.close_outlined : Icons.add_outlined,
-                tooltip: _moreGridOpen ? '收起' : '更多功能',
+                tooltip: _moreGridOpen ? _c.collapse : _c.more,
                 onPressed: _toggleMoreGrid,
               ),
             ),
@@ -1065,7 +1071,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
-                    '多行模式 · 发送键或回车发送，Shift+回车换行',
+                    _c.multilineHint,
                     textAlign: TextAlign.right,
                     style: TextStyle(
                       fontSize: 11,

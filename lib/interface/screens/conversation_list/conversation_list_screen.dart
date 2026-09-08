@@ -18,7 +18,14 @@ import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/layout/workbench_layout.dart';
 // Design-source app: delegate only genuine 1:1 presentational primitives to the
 // kit. Here the account presence dot maps exactly onto FlarePresenceDot.
-import 'package:flare_im_ui/flare_im_ui.dart' show FlarePresenceDot;
+import 'package:flare_im_ui/flare_im_ui.dart'
+    show
+        FlareConversationSliverList,
+        FlareEmptyState,
+        FlareFormField,
+        FlareInput,
+        FlarePresenceDot,
+        FlareSegmentedControl;
 import 'package:flutter/material.dart' hide ConnectionState;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -98,8 +105,6 @@ class _ConversationListScreenState
       ...visibleIds.pinnedIds,
       ...visibleIds.restIds,
     ];
-    final pinnedSet = visibleIds.pinnedIds.toSet();
-    final hasVisible = visibleConversationIds.isNotEmpty;
 
     return Scaffold(
       backgroundColor: FlareImDesign.mobileCanvas,
@@ -190,7 +195,7 @@ class _ConversationListScreenState
                           suffixIcon: _searchQuery.isEmpty
                               ? null
                               : IconButton(
-                                  tooltip: '清空',
+                                  tooltip: i18n.t('conversation.clearSearch'),
                                   onPressed: () {
                                     _searchController.clear();
                                     setState(() => _searchQuery = '');
@@ -234,37 +239,24 @@ class _ConversationListScreenState
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
-                    if (!hasVisible)
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: _ConversationEmptyState(
-                            i18n: i18n,
-                            searching: query.isNotEmpty,
-                            status: runtimeStatus,
-                            onStartChat: () =>
-                                _showStartChatDialog(context, ref),
-                          ),
-                        ),
-                      )
-                    else ...[
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate((
-                            context,
-                            index,
-                          ) {
-                            final id = visibleConversationIds[index];
-                            return ConversationListSliverItem(
-                              conversationId: id,
-                              pinnedSection: pinnedSet.contains(id),
-                            );
-                          }, childCount: visibleConversationIds.length),
+                    // 容器收敛到 kit 的 sliver 变体：统一空态/加载态 sliver 结构，
+                    // 行仍由 app 的 ConversationListSliverItem 按-id 切片订阅构建
+                    // （单会话更新只重建该行，性能模型不变）。
+                    FlareConversationSliverList(
+                      ids: visibleConversationIds,
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                      emptyPlaceholder: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: _ConversationEmptyState(
+                          i18n: i18n,
+                          searching: query.isNotEmpty,
+                          status: runtimeStatus,
+                          onStartChat: () => _showStartChatDialog(context, ref),
                         ),
                       ),
-                    ],
+                      rowBuilder: (context, id) =>
+                          ConversationListSliverItem(conversationId: id),
+                    ),
                   ],
                 ),
               ),
@@ -299,22 +291,22 @@ class _ConversationListScreenState
                 const SizedBox(height: 14),
                 _MoreActionTile(
                   icon: Icons.home_work_outlined,
-                  title: 'Core 首页快照',
-                  subtitle: '通过 bootstrapHomeTimeline 重建会话列表',
+                  title: i18n.t('conversation.homeSnapshot'),
+                  subtitle: i18n.t('conversation.homeSnapshotDesc'),
                   onTap: () async {
                     Navigator.pop(sheetContext);
                     final count = await _imOutbound
                         .conversationBootstrapHomeTimeline();
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('已加载 Core 首页快照：$count 个会话')),
+                      SnackBar(content: Text(i18n.t('conversation.homeSnapshotLoaded').replaceAll('{count}', '$count'))),
                     );
                   },
                 ),
                 _MoreActionTile(
                   icon: Icons.playlist_add_check_rounded,
-                  title: '批量同步会话',
-                  subtitle: '通过 core sync 后重载会话视图',
+                  title: i18n.t('conversation.batchSync'),
+                  subtitle: i18n.t('conversation.batchSyncDesc'),
                   onTap: () {
                     Navigator.pop(sheetContext);
                     final ids = ref
@@ -370,20 +362,20 @@ class _ConversationListScreenState
                 ),
                 _MoreActionTile(
                   icon: Icons.person_outline_rounded,
-                  title: '个人资料',
-                  subtitle: '账号资料与在线状态',
+                  title: i18n.t('conversation.profile'),
+                  subtitle: i18n.t('conversation.profileDesc'),
                   onTap: () {
                     Navigator.pop(sheetContext);
                     ScaffoldMessenger.of(
                       context,
-                    ).showSnackBar(const SnackBar(content: Text('个人资料能力待接入')));
+                    ).showSnackBar(SnackBar(content: Text(i18n.t('conversation.profileTodo'))));
                   },
                 ),
                 const SizedBox(height: 8),
                 _MoreActionTile(
                   icon: Icons.logout_rounded,
-                  title: '退出登录',
-                  subtitle: '断开 SDK 会话并回到登录页',
+                  title: i18n.t('conversation.logout'),
+                  subtitle: i18n.t('conversation.logoutDesc'),
                   danger: true,
                   onTap: () {
                     Navigator.pop(sheetContext);
@@ -399,6 +391,7 @@ class _ConversationListScreenState
   }
 
   Future<void> _showStartChatDialog(BuildContext context, WidgetRef ref) async {
+    final i18n = ref.read(flareMessagesProvider);
     final input = await showDialog<_StartChatDialogResult>(
       context: context,
       builder: (ctx) => const _StartChatDialog(),
@@ -436,12 +429,12 @@ class _ConversationListScreenState
     if (conv == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('未找到会话（请检查 userId / 权限）')));
+      ).showSnackBar(SnackBar(content: Text(i18n.t('conversation.notFound'))));
       return;
     }
     if (conv.conversationId.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('会话创建返回空 conversationId，请检查 SDK 响应')),
+        SnackBar(content: Text(i18n.t('conversation.emptyCid'))),
       );
       return;
     }
@@ -450,13 +443,15 @@ class _ConversationListScreenState
   }
 
   String _conversationOpenFailureText(Object error) {
+    final i18n = ref.read(flareMessagesProvider);
     if (error is FormatException && error.message.contains('conversationId')) {
-      return 'SDK 返回了无效会话，请清理空 conversationId 数据后重试';
+      return i18n.t('conversation.invalidConv');
     }
-    return '打开会话失败，请检查 userId / 权限 / SDK 状态';
+    return i18n.t('conversation.openFailed');
   }
 
   Future<void> _showBulkSyncDialog(List<String> initialIds) async {
+    final i18n = ref.read(flareMessagesProvider);
     final idsCtrl = TextEditingController(text: initialIds.join('\n'));
     try {
       final ok = await showDialog<bool>(
@@ -465,26 +460,26 @@ class _ConversationListScreenState
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: const Text('批量同步会话'),
+          title: Text(i18n.t('conversation.batchSync')),
           content: TextField(
             controller: idsCtrl,
             minLines: 6,
             maxLines: 10,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'conversationId',
-              hintText: '多个 id 用逗号、空格或换行分隔',
+              hintText: i18n.t('conversation.batchSyncHint'),
               alignLabelWithHint: true,
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消'),
+              child: Text(i18n.t('conversation.cancel')),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('刷新'),
+              child: Text(i18n.t('conversation.refresh')),
             ),
           ],
         ),
@@ -499,27 +494,28 @@ class _ConversationListScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('已同步 ${ids.length} 个会话')));
+      ).showSnackBar(SnackBar(content: Text(i18n.t('conversation.synced').replaceAll('{count}', '${ids.length}'))));
     } finally {
       idsCtrl.dispose();
     }
   }
 
   Future<void> _handleLogout() async {
+    final i18n = ref.read(flareMessagesProvider);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('退出登录'),
-        content: const Text('确定要退出登录吗?'),
+        title: Text(i18n.t('conversation.logout')),
+        content: Text(i18n.t('conversation.logoutConfirm')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(i18n.t('conversation.cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('确定'),
+            child: Text(i18n.t('conversation.confirm')),
           ),
         ],
       ),
@@ -557,14 +553,14 @@ final class _StartChatDialogResult {
   final String displayName;
 }
 
-class _StartChatDialog extends StatefulWidget {
+class _StartChatDialog extends ConsumerStatefulWidget {
   const _StartChatDialog();
 
   @override
-  State<_StartChatDialog> createState() => _StartChatDialogState();
+  ConsumerState<_StartChatDialog> createState() => _StartChatDialogState();
 }
 
-class _StartChatDialogState extends State<_StartChatDialog> {
+class _StartChatDialogState extends ConsumerState<_StartChatDialog> {
   final _idCtrl = TextEditingController();
   final _displayNameCtrl = TextEditingController();
   var _type = ConversationType.single;
@@ -580,59 +576,53 @@ class _StartChatDialogState extends State<_StartChatDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final i18n = ref.watch(flareMessagesProvider);
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text('打开会话'),
+      title: Text(i18n.t('conversation.startTitle')),
+      // 用 kit 表单基元（FlareSegmentedControl + FlareFormField/FlareInput）重搭，
+      // 与登录页同一套设计；保留「直接输入 userId」范式（示例无通讯录）。
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text('会话类型', style: Theme.of(context).textTheme.labelLarge),
-          ),
-          const SizedBox(height: 6),
-          SegmentedButton<ConversationType>(
-            segments: const [
-              ButtonSegment(
-                value: ConversationType.single,
-                icon: Icon(Icons.person_outline_rounded),
-                label: Text('单聊'),
-              ),
-              ButtonSegment(
-                value: ConversationType.group,
-                icon: Icon(Icons.group_add_outlined),
-                label: Text('群聊'),
-              ),
-            ],
-            selected: {_type},
-            onSelectionChanged: (values) {
-              setState(() => _type = values.first);
-            },
+          FlareFormField(
+            label: i18n.t('conversation.typeLabel'),
+            child: FlareSegmentedControl(
+              options: [
+                i18n.t('conversation.direct'),
+                i18n.t('conversation.group'),
+              ],
+              selectedIndex: _type == ConversationType.group ? 1 : 0,
+              onSelect: (index) => setState(() {
+                _type = index == 1
+                    ? ConversationType.group
+                    : ConversationType.single;
+              }),
+            ),
           ),
           const SizedBox(height: 14),
-          TextField(
-            controller: _idCtrl,
-            decoration: InputDecoration(
-              labelText: _type == ConversationType.single
-                  ? 'peer userId'
-                  : '成员 userId',
-              hintText: _type == ConversationType.single
-                  ? '单聊填对方 userId'
-                  : '群聊填多个 userId，用逗号、空格或换行分隔',
+          FlareFormField(
+            label: _type == ConversationType.single
+                ? 'peer userId'
+                : i18n.t('conversation.memberIds'),
+            child: FlareInput(
+              controller: _idCtrl,
+              placeholder: _type == ConversationType.single
+                  ? i18n.t('conversation.peerHint')
+                  : i18n.t('conversation.membersHint'),
+              multiline: _type == ConversationType.group,
+              autofocus: true,
+              onChanged: (_) => setState(() {}),
             ),
-            autofocus: true,
-            minLines: _type == ConversationType.group ? 2 : 1,
-            maxLines: _type == ConversationType.group ? 4 : 1,
-            onChanged: (_) => setState(() {}),
           ),
           if (_type == ConversationType.group) ...[
             const SizedBox(height: 12),
-            TextField(
-              controller: _displayNameCtrl,
-              decoration: const InputDecoration(
-                labelText: '群名称（可选）',
-                hintText: '例如 Flutter SDK Lab',
+            FlareFormField(
+              label: i18n.t('conversation.groupName'),
+              child: FlareInput(
+                controller: _displayNameCtrl,
+                placeholder: i18n.t('conversation.groupNameHint'),
               ),
             ),
           ],
@@ -641,7 +631,7 @@ class _StartChatDialogState extends State<_StartChatDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(i18n.t('conversation.cancel')),
         ),
         FilledButton(
           onPressed: _canSubmit
@@ -654,7 +644,7 @@ class _StartChatDialogState extends State<_StartChatDialog> {
                   ),
                 )
               : null,
-          child: const Text('打开'),
+          child: Text(i18n.t('conversation.open')),
         ),
       ],
     );
@@ -868,7 +858,7 @@ class _AccountSheetHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final account = (user?.userId.trim().isNotEmpty ?? false)
         ? user!.userId.trim()
-        : '未登录';
+        : i18n.t('conversation.notLoggedIn');
     final name = user?.displayName.trim();
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1057,78 +1047,36 @@ class _ConversationEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // App owns the status-aware mapping (which icon/title/hint/action fits the
+    // current runtime state); the visual is the kit's FlareEmptyState so the
+    // placeholder stays consistent with every other empty state in the app.
     final preparing = !searching && status.isBusy;
     final failed = !searching && status.isFailure;
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-          width: 72,
-          height: 72,
-          decoration: BoxDecoration(
-            color: FlareImDesign.brandPurple.withValues(alpha: 0.10),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            searching
-                ? Icons.search_off_rounded
-                : failed
-                ? Icons.sync_problem_rounded
-                : preparing
-                ? Icons.sync_rounded
-                : Icons.chat_bubble_outline_rounded,
-            size: 34,
-            color: FlareImDesign.brandPurple,
-          ),
-        ),
-        const SizedBox(height: 18),
-        Text(
-          searching
-              ? i18n.conversation.emptySearchTitle
-              : failed
-              ? status.title
-              : preparing
-              ? status.title
-              : i18n.conversation.emptyTitle,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: FlareImDesign.foreground,
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          searching
-              ? i18n.conversation.emptySearchHint
-              : failed
-              ? status.detail
-              : preparing
-              ? status.detail
-              : i18n.conversation.emptyHint,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: FlareImDesign.mutedForeground.withValues(alpha: 0.88),
-            fontSize: 13,
-            height: 1.4,
-          ),
-        ),
-        if (!searching && !preparing) ...[
-          const SizedBox(height: 18),
-          FilledButton.icon(
-            onPressed: onStartChat,
-            icon: const Icon(Icons.add_rounded),
-            label: Text(i18n.conversation.startChat),
-            style: FilledButton.styleFrom(
-              backgroundColor: FlareImDesign.brandPurple,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-          ),
-        ],
-      ],
+    final actionable = !searching && !preparing;
+    return FlareEmptyState(
+      icon: searching
+          ? Icons.search_off_rounded
+          : failed
+          ? Icons.sync_problem_rounded
+          : preparing
+          ? Icons.sync_rounded
+          : Icons.chat_bubble_outline_rounded,
+      title: searching
+          ? i18n.conversation.emptySearchTitle
+          : failed
+          ? status.title
+          : preparing
+          ? status.title
+          : i18n.conversation.emptyTitle,
+      description: searching
+          ? i18n.conversation.emptySearchHint
+          : failed
+          ? status.detail
+          : preparing
+          ? status.detail
+          : i18n.conversation.emptyHint,
+      actionText: actionable ? i18n.conversation.startChat : null,
+      onAction: actionable ? onStartChat : null,
     );
   }
 }

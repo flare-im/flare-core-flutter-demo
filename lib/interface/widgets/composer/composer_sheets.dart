@@ -1,4 +1,5 @@
 import 'package:extended_text_field/extended_text_field.dart';
+import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/infrastructure/media/composer_pack_assets.dart';
 import 'package:flare_im/infrastructure/media/composer_recent_emoji_store.dart';
 import 'package:flare_im/infrastructure/media/composer_static_asset_image.dart';
@@ -7,9 +8,11 @@ import 'package:flare_im/interface/widgets/composer/composer_emoji_pack_thumb.da
 import 'package:flare_im/interface/widgets/composer/composer_emoji_span_builder.dart';
 import 'package:flare_im/interface/widgets/composer/composer_inline_text_field.dart';
 import 'package:flare_im/interface/widgets/composer/composer_models.dart';
+import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 表情来自 `assets/emoji/*.webp`，贴纸来自 `assets/stickers/**`。
 /// 选择器内资源用 [ComposerStaticAssetImage] 仅显示首帧（静态）；会话内仍可用动图展示。
@@ -117,7 +120,7 @@ Future<void> showComposerEmojiStickerSheet(
   );
 }
 
-class _ComposerEmojiStickerPanel extends StatefulWidget {
+class _ComposerEmojiStickerPanel extends ConsumerStatefulWidget {
   const _ComposerEmojiStickerPanel({
     required this.initialBottomTab,
     required this.onInsertBracket,
@@ -153,13 +156,15 @@ class _ComposerEmojiStickerPanel extends StatefulWidget {
   final ValueChanged<String>? onPanelSubmitted;
 
   @override
-  State<_ComposerEmojiStickerPanel> createState() =>
+  ConsumerState<_ComposerEmojiStickerPanel> createState() =>
       _ComposerEmojiStickerPanelState();
 }
 
 class _ComposerEmojiStickerPanelState
-    extends State<_ComposerEmojiStickerPanel> {
+    extends ConsumerState<_ComposerEmojiStickerPanel> {
   static const Color _panelTint = Color(0xFFEEF1F6);
+
+  FlareComposerCopy get _c => ref.read(flareMessagesProvider).composer;
 
   late int _bottomTab;
   List<String> _recentKeys = [];
@@ -272,7 +277,7 @@ class _ComposerEmojiStickerPanelState
     final field = ComposerInlineTextField(
       controller: _draft,
       focusNode: _ownedDraftFocus!,
-      hintText: widget.panelHintText ?? '输入或选择表情',
+      hintText: widget.panelHintText ?? _c.emojiSearchHint,
       minLines: widget.panelMinLines,
       maxLines: widget.panelMaxLines,
       enabled: widget.panelDraftEnabled,
@@ -342,13 +347,13 @@ class _ComposerEmojiStickerPanelState
     final recent = _recentKeys.where(allKeys.contains).take(21).toList();
 
     if (allKeys.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
           child: Text(
-            '未在打包资源中发现 assets/emoji/*.webp。\n请确认 pubspec 已声明 assets/emoji/ 且目录内有文件。',
+            _c.emojiAssetsMissing,
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               color: FlareThemeTokens.textSecondary,
               fontSize: 14,
               height: 1.4,
@@ -365,7 +370,7 @@ class _ComposerEmojiStickerPanelState
             child: Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
               child: Text(
-                '最常使用',
+                _c.frequentlyUsed,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -398,7 +403,7 @@ class _ComposerEmojiStickerPanelState
           child: Padding(
             padding: EdgeInsets.fromLTRB(8, recent.isEmpty ? 6 : 10, 8, 6),
             child: Text(
-              '默认表情',
+              _c.defaultEmoji,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -436,10 +441,10 @@ class _ComposerEmojiStickerPanelState
     }
     final items = ComposerPackAssets.stickersForPackage(packageId);
     if (items.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
-          '当前分包下无 .webp 资源',
-          style: TextStyle(color: FlareThemeTokens.textSecondary),
+          _c.noWebpInPack,
+          style: const TextStyle(color: FlareThemeTokens.textSecondary),
         ),
       );
     }
@@ -500,14 +505,14 @@ class _ComposerEmojiStickerPanelState
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               IconButton(
-                tooltip: '更多表情包',
+                tooltip: _c.moreEmojiPacks,
                 visualDensity: VisualDensity.compact,
                 constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                 padding: EdgeInsets.zero,
                 onPressed: () {
                   ScaffoldMessenger.of(
                     context,
-                  ).showSnackBar(const SnackBar(content: Text('自定义表情包（占位）')));
+                  ).showSnackBar(SnackBar(content: Text(_c.customEmojiPackPlaceholder)));
                 },
                 icon: const Icon(
                   Icons.add_circle_outline,
@@ -560,9 +565,9 @@ class _ComposerEmojiStickerPanelState
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                child: const Text(
-                  '发送',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                child: Text(
+                  _c.send,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                 ),
               ),
             ],
@@ -633,6 +638,7 @@ class _StickerPackTabIcon extends StatelessWidget {
 Future<void> showComposerAttachSheet(
   BuildContext context, {
   required void Function(ComposerPickMediaKind kind) onPick,
+  required FlareComposerCopy i18n,
   VoidCallback? onOpenEmojiSticker,
 }) async {
   await showModalBottomSheet<void>(
@@ -659,11 +665,11 @@ Future<void> showComposerAttachSheet(
                   ),
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                 child: Text(
-                  '更多功能',
-                  style: TextStyle(
+                  i18n.more,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: FlareThemeTokens.textPrimary,
@@ -684,9 +690,9 @@ Future<void> showComposerAttachSheet(
                       Icons.emoji_emotions_outlined,
                       color: FlareThemeTokens.textSecondary,
                     ),
-                    title: const Text('表情与贴纸'),
+                    title: Text(i18n.emojiSticker),
                     subtitle: Text(
-                      '来自 assets/emoji 与 assets/stickers',
+                      i18n.emojiStickerDesc,
                       style: TextStyle(
                         fontSize: 12,
                         color: FlareThemeTokens.textSecondary.withValues(
@@ -710,7 +716,7 @@ Future<void> showComposerAttachSheet(
                         Expanded(
                           child: _AttachTile(
                             icon: Icons.image_outlined,
-                            label: '图片',
+                            label: i18n.image,
                             onTap: () {
                               final nav = Navigator.of(
                                 ctx,
@@ -725,7 +731,7 @@ Future<void> showComposerAttachSheet(
                         Expanded(
                           child: _AttachTile(
                             icon: Icons.videocam_outlined,
-                            label: '视频',
+                            label: i18n.video,
                             onTap: () {
                               final nav = Navigator.of(
                                 ctx,
@@ -740,7 +746,7 @@ Future<void> showComposerAttachSheet(
                         Expanded(
                           child: _AttachTile(
                             icon: Icons.insert_drive_file_outlined,
-                            label: '文件',
+                            label: i18n.file,
                             onTap: () {
                               final nav = Navigator.of(
                                 ctx,
@@ -759,8 +765,8 @@ Future<void> showComposerAttachSheet(
                         Expanded(
                           child: _AttachTile(
                             icon: Icons.photo_library_outlined,
-                            label: '相册',
-                            subtitle: '图片与视频',
+                            label: i18n.album,
+                            subtitle: i18n.imageAndVideo,
                             onTap: () {
                               final nav = Navigator.of(
                                 ctx,
@@ -775,7 +781,7 @@ Future<void> showComposerAttachSheet(
                         Expanded(
                           child: _AttachTile(
                             icon: Icons.folder_open_outlined,
-                            label: '文件夹',
+                            label: i18n.folder,
                             onTap: () {
                               final nav = Navigator.of(
                                 ctx,
@@ -874,6 +880,7 @@ Future<void> showComposerExpandedEditor(
   required bool disabled,
   required ValueChanged<String> onChanged,
   required VoidCallback onSend,
+  required FlareComposerCopy i18n,
   Future<void> Function()? onEmojiSticker,
   void Function(ComposerPickMediaKind kind)? onPickMedia,
   void Function(String insert)? onInsertAtCursor,
@@ -891,7 +898,7 @@ Future<void> showComposerExpandedEditor(
       final keyboardBottom = MediaQuery.viewInsetsOf(ctx).bottom;
       final hintText = placeholder.trim().isNotEmpty
           ? placeholder.trim()
-          : '发消息';
+          : i18n.sendMessage;
       final bottomBreathing = keyboardBottom > 0 ? 0.0 : 18.0;
       final localeTag = Localizations.maybeLocaleOf(ctx)?.toLanguageTag();
       final screenH = MediaQuery.sizeOf(ctx).height;
@@ -903,7 +910,7 @@ Future<void> showComposerExpandedEditor(
         } else if (ctx.mounted) {
           ScaffoldMessenger.of(
             ctx,
-          ).showSnackBar(const SnackBar(content: Text('表情（未接入）')));
+          ).showSnackBar(SnackBar(content: Text(i18n.emojiNotWired)));
         }
       }
 
@@ -913,7 +920,7 @@ Future<void> showComposerExpandedEditor(
         } else if (ctx.mounted) {
           ScaffoldMessenger.of(
             ctx,
-          ).showSnackBar(const SnackBar(content: Text('附件（未接入）')));
+          ).showSnackBar(SnackBar(content: Text(i18n.attachNotWired)));
         }
       }
 
@@ -923,7 +930,7 @@ Future<void> showComposerExpandedEditor(
         } else if (ctx.mounted) {
           ScaffoldMessenger.of(
             ctx,
-          ).showSnackBar(const SnackBar(content: Text('插入（未接入）')));
+          ).showSnackBar(SnackBar(content: Text(i18n.insertNotWired)));
         }
       }
 
@@ -931,7 +938,7 @@ Future<void> showComposerExpandedEditor(
         if (ctx.mounted) {
           ScaffoldMessenger.of(
             ctx,
-          ).showSnackBar(SnackBar(content: Text('$name（开发中）')));
+          ).showSnackBar(SnackBar(content: Text(i18n.inDev(name))));
         }
       }
 
@@ -1049,40 +1056,40 @@ Future<void> showComposerExpandedEditor(
                                       children: [
                                         tbIcon(
                                           Icons.emoji_emotions_outlined,
-                                          '表情与贴纸',
+                                          i18n.emojiSticker,
                                           () => emoji(),
                                         ),
                                         tbIcon(
                                           Icons.alternate_email,
-                                          '@提及',
+                                          i18n.mention,
                                           () => insert('@'),
                                         ),
                                         tbIcon(
                                           Icons.image_outlined,
-                                          '图片',
+                                          i18n.image,
                                           () =>
                                               pick(ComposerPickMediaKind.image),
                                         ),
                                         tbIcon(
                                           Icons.text_fields_rounded,
-                                          '富文本',
-                                          () => comingSoon('富文本'),
+                                          i18n.richText,
+                                          () => comingSoon(i18n.richText),
                                         ),
                                         tbIcon(
                                           Icons.format_indent_increase,
-                                          '增加缩进',
-                                          () => comingSoon('缩进'),
+                                          i18n.increaseIndent,
+                                          () => comingSoon(i18n.indent),
                                         ),
                                         tbIcon(
                                           Icons.format_indent_decrease,
-                                          '减少缩进',
-                                          () => comingSoon('缩进'),
+                                          i18n.decreaseIndent,
+                                          () => comingSoon(i18n.indent),
                                         ),
                                       ],
                                     ),
                                   ),
                                   IconButton(
-                                    tooltip: '发送',
+                                    tooltip: i18n.send,
                                     visualDensity: VisualDensity.compact,
                                     padding: const EdgeInsets.all(8),
                                     constraints: const BoxConstraints(

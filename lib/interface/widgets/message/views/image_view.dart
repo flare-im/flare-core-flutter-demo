@@ -1,17 +1,20 @@
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/domain/value_objects/conversation_type.dart';
 import 'package:flare_im/infrastructure/media/network_image_policy.dart';
 import 'package:flare_im/interface/theme/flare_im_design.dart';
 import 'package:flare_im/interface/widgets/media_viewer/image_preview_modal.dart';
 import 'package:flare_im/interface/widgets/message/message_style.dart';
 import 'package:flare_im/interface/widgets/message/views/media_inline.dart';
+import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 图片消息：底栏尺寸与时间；可选说明与己方状态徽标。
-class ImageView extends StatelessWidget {
+class ImageView extends ConsumerWidget {
   final String url;
   final int? width;
   final int? height;
@@ -36,21 +39,22 @@ class ImageView extends StatelessWidget {
   static const double _maxDisplayWidth = 240;
   static const double _defaultDisplayHeight = 168;
 
-  static String _formatOriginalLabel(int? bytes) {
-    if (bytes == null || bytes <= 0) return '原图';
-    if (bytes < 1024) return '原图 ${bytes}B';
+  static String _formatOriginalLabel(int? bytes, FlareChatCopy i18n) {
+    if (bytes == null || bytes <= 0) return i18n.originalImage;
+    if (bytes < 1024) return i18n.originalImageBytes(bytes);
     if (bytes < 1024 * 1024) {
       final kb = bytes / 1024;
       final s = kb < 10 ? kb.toStringAsFixed(1) : kb.toStringAsFixed(0);
-      return '原图 ${s}KB';
+      return i18n.originalImageKb(s);
     }
     final mb = bytes / (1024 * 1024);
     final s = mb < 10 ? mb.toStringAsFixed(1) : mb.toStringAsFixed(0);
-    return '原图 ${s}MB';
+    return i18n.originalImageMb(s);
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final i18n = ref.watch(flareMessagesProvider).chat;
     final capTrim = caption?.trim();
     final captionText = (capTrim != null && capTrim.isNotEmpty)
         ? capTrim
@@ -75,12 +79,14 @@ class ImageView extends StatelessWidget {
             displayW: displayW,
             displayH: displayH,
             captionText: captionText,
+            i18n: i18n,
           );
         }
         return _footerBarLayout(
           context,
           displayW: displayW,
           displayH: displayH,
+          i18n: i18n,
         );
       },
     );
@@ -91,6 +97,7 @@ class ImageView extends StatelessWidget {
     required double displayW,
     required double displayH,
     required String captionText,
+    required FlareChatCopy i18n,
   }) {
     final fg = isSelf
         ? MessageBubbleStyle.selfBubbleForeground(context)
@@ -124,7 +131,7 @@ class ImageView extends StatelessWidget {
                     child: SizedBox(
                       width: displayW,
                       height: displayH,
-                      child: _imageBody(context, displayW, displayH),
+                      child: _imageBody(context, displayW, displayH, i18n),
                     ),
                   ),
                 ),
@@ -162,6 +169,7 @@ class ImageView extends StatelessWidget {
     BuildContext context, {
     required double displayW,
     required double displayH,
+    required FlareChatCopy i18n,
   }) {
     final footerBg = _footerBarBackground(context);
     final footerFg = _footerBarForeground(context);
@@ -185,7 +193,7 @@ class ImageView extends StatelessWidget {
               child: SizedBox(
                 width: displayW,
                 height: displayH,
-                child: _imageBody(context, displayW, displayH),
+                child: _imageBody(context, displayW, displayH, i18n),
               ),
             ),
             Container(
@@ -196,7 +204,7 @@ class ImageView extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      _formatOriginalLabel(sizeBytes),
+                      _formatOriginalLabel(sizeBytes, i18n),
                       style: TextStyle(
                         color: footerFg,
                         fontSize: 12,
@@ -262,7 +270,7 @@ class ImageView extends StatelessWidget {
         : FlareImDesign.messageBubbleReceiverMeta;
   }
 
-  Widget _imageBody(BuildContext context, double w, double h) {
+  Widget _imageBody(BuildContext context, double w, double h, FlareChatCopy i18n) {
     if (isLocalFileLikePath(url)) {
       final path = url.startsWith('file://')
           ? Uri.parse(url).toFilePath()
@@ -276,7 +284,7 @@ class ImageView extends StatelessWidget {
           width: w,
           height: h,
           icon: Icons.broken_image_outlined,
-          label: '图片加载失败',
+          label: i18n.imageLoadFailed,
         ),
       );
     }
@@ -285,7 +293,7 @@ class ImageView extends StatelessWidget {
         width: w,
         height: h,
         icon: Icons.hide_image_outlined,
-        label: '无法显示本地路径图片',
+        label: i18n.cannotShowLocalImage,
       );
     }
     return CachedNetworkImage(

@@ -30,6 +30,7 @@ import 'package:flare_im/interface/widgets/composer/sdk_message_build_sheet.dart
 import 'package:flare_im/interface/widgets/conversation_details_panel.dart';
 import 'package:flare_im/interface/widgets/location/location_picker_sheet.dart';
 import 'package:flare_im/interface/widgets/message/chat_message_list_item.dart';
+import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/layout/workbench_layout.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
@@ -55,6 +56,9 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
   static const _foregroundRefreshInterval = Duration(seconds: 4);
+
+  /// 回调 / 弹窗 / 提示等一次性读取语言文案（非 build 响应式路径）。
+  FlareChatCopy get _c => ref.read(flareMessagesProvider).chat;
 
   final _scrollController = ScrollController();
   final _composerKey = GlobalKey<MessageComposerState>();
@@ -408,7 +412,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('已请求同步会话')));
+    ).showSnackBar(SnackBar(content: Text(_c.syncRequested)));
   }
 
   void _openMessageSearch() {
@@ -449,7 +453,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
         if (mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('原消息已不可用，已按纯文本发送')));
+          ).showSnackBar(SnackBar(content: Text(_c.quoteFallbackPlain)));
         }
         await ref
             .read(imOutboundProvider)
@@ -466,7 +470,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
         if (!mounted) return;
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('引用发送失败：$e')));
+        ).showSnackBar(SnackBar(content: Text(_c.quoteSendFailed(e))));
       }
       return;
     }
@@ -518,7 +522,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('富文本发送失败：$e')));
+      ).showSnackBar(SnackBar(content: Text(_c.richTextSendFailed(e))));
     }
   }
 
@@ -552,7 +556,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('发送失败：$e')));
+      ).showSnackBar(SnackBar(content: Text(_c.sendFailed(e))));
     }
   }
 
@@ -627,7 +631,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
 
   double _requiredDouble(Map<String, String> values, String key, String label) {
     final v = double.tryParse((values[key] ?? '').trim());
-    if (v == null) throw StateError('$label 必须为数字');
+    if (v == null) throw StateError(_c.mustBeNumber(label));
     return v;
   }
 
@@ -646,7 +650,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
         );
       case SdkMessageBuildKind.imageGroup:
         final images = _parseImageGroupLines(values['imageLines'] ?? '');
-        if (images.isEmpty) throw StateError('请至少填写一行图片');
+        if (images.isEmpty) throw StateError(_c.atLeastOneImageRow);
         return (
           op: 'create_with_content',
           params: {
@@ -664,8 +668,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
         return (
           op: 'create_location',
           params: {
-            'longitude': _requiredDouble(values, 'longitude', '经度'),
-            'latitude': _requiredDouble(values, 'latitude', '纬度'),
+            'longitude': _requiredDouble(values, 'longitude', _c.longitude),
+            'latitude': _requiredDouble(values, 'latitude', _c.latitude),
             if (_nonEmpty(values['title']) != null)
               'title': _nonEmpty(values['title']),
             if (_nonEmpty(values['address']) != null)
@@ -722,7 +726,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
             .map((e) => e.trim())
             .where((e) => e.isNotEmpty)
             .toList();
-        if (options.length < 2) throw StateError('投票至少需要 2 个选项');
+        if (options.length < 2) throw StateError(_c.voteMinOptions);
         return (
           op: 'create_vote',
           params: {
@@ -960,9 +964,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
                                     ),
                                   ),
                                   onPressed: () => Navigator.pop(ctx, false),
-                                  child: const Text(
-                                    '取消',
-                                    style: TextStyle(
+                                  child: Text(
+                                    _c.cancel,
+                                    style: const TextStyle(
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -982,9 +986,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
                                     ),
                                   ),
                                   onPressed: () => Navigator.pop(ctx, true),
-                                  child: const Text(
-                                    '发送',
-                                    style: TextStyle(
+                                  child: Text(
+                                    _c.send,
+                                    style: const TextStyle(
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
@@ -1028,33 +1032,33 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
     final name = TextEditingController(
       text: me?.displayName ?? me?.userId ?? '',
     );
-    final subtitle = TextEditingController(text: 'Flare IM 用户');
+    final subtitle = TextEditingController(text: _c.defaultUserName);
     final avatar = TextEditingController(text: me?.avatar ?? '');
     try {
       final ok = await _showBusinessMessageDialog(
-        title: '发送名片',
-        subtitle: '发送联系人资料，便于对方快速识别',
+        title: _c.sendCard,
+        subtitle: _c.sendCardDesc,
         icon: Icons.badge_rounded,
         accent: FlareThemeTokens.primaryActive,
         fields: [
           _businessTextField(
             id,
-            label: '用户 ID',
+            label: _c.userId,
             icon: Icons.alternate_email_rounded,
           ),
           _businessTextField(
             name,
-            label: '显示名称',
+            label: _c.displayName,
             icon: Icons.person_outline_rounded,
           ),
           _businessTextField(
             subtitle,
-            label: '副标题',
+            label: _c.subtitleLabel,
             icon: Icons.short_text_rounded,
           ),
           _businessTextField(
             avatar,
-            label: '头像 URL（可选）',
+            label: _c.avatarUrlOptional,
             hint: 'https://...',
             icon: Icons.image_outlined,
           ),
@@ -1080,31 +1084,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
   }
 
   Future<void> _showSendTaskDialog() async {
-    final title = TextEditingController(text: '跟进本次沟通');
+    final title = TextEditingController(text: _c.taskTitleDefault);
     final status = TextEditingController(text: 'todo');
     final participants = TextEditingController();
     try {
       final ok = await _showBusinessMessageDialog(
-        title: '发送任务',
-        subtitle: '创建一个待办任务卡片并发送到会话',
+        title: _c.sendTask,
+        subtitle: _c.taskCardDesc,
         icon: Icons.task_alt_rounded,
         accent: FlareThemeTokens.robot,
         fields: [
           _businessTextField(
             title,
-            label: '任务标题',
+            label: _c.taskTitleLabel,
             icon: Icons.check_circle_outline_rounded,
           ),
           _businessTextField(
             status,
-            label: '状态',
+            label: _c.statusLabel,
             hint: 'todo / doing / done',
             icon: Icons.flag_outlined,
           ),
           _businessTextField(
             participants,
-            label: '参与人 ID',
-            hint: '用逗号或空格分隔',
+            label: _c.participantIds,
+            hint: _c.commaOrSpaceSeparated,
             icon: Icons.group_outlined,
           ),
         ],
@@ -1127,38 +1131,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
   }
 
   Future<void> _showSendScheduleDialog() async {
-    final title = TextEditingController(text: '沟通会议');
+    final title = TextEditingController(text: _c.scheduleTitleDefault);
     final startAfterMinutes = TextEditingController(text: '30');
     final durationMinutes = TextEditingController(text: '60');
     final participants = TextEditingController();
     try {
       final ok = await _showBusinessMessageDialog(
-        title: '发送日程',
-        subtitle: '创建一条会议或提醒日程并同步给成员',
+        title: _c.sendSchedule,
+        subtitle: _c.scheduleCardDesc,
         icon: Icons.calendar_month_rounded,
         accent: FlareThemeTokens.important,
         fields: [
           _businessTextField(
             title,
-            label: '日程标题',
+            label: _c.scheduleTitleLabel,
             icon: Icons.event_note_outlined,
           ),
           _businessTextField(
             startAfterMinutes,
-            label: '多少分钟后开始',
+            label: _c.minutesUntilStart,
             icon: Icons.schedule_rounded,
             keyboardType: TextInputType.number,
           ),
           _businessTextField(
             durationMinutes,
-            label: '持续分钟数',
+            label: _c.durationMinutes,
             icon: Icons.timelapse_rounded,
             keyboardType: TextInputType.number,
           ),
           _businessTextField(
             participants,
-            label: '参与人 ID',
-            hint: '用逗号或空格分隔',
+            label: _c.participantIds,
+            hint: _c.commaOrSpaceSeparated,
             icon: Icons.group_outlined,
           ),
         ],
@@ -1218,13 +1222,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
           children: [
             ListTile(
               leading: const Icon(Icons.mic),
-              title: const Text('按住录音'),
-              subtitle: const Text('松开发送，上滑取消'),
+              title: Text(_c.holdToRecord),
+              subtitle: Text(_c.releaseToSendSlideCancel),
               onTap: () => Navigator.of(ctx).pop('record_hold'),
             ),
             ListTile(
               leading: const Icon(Icons.library_music),
-              title: const Text('选择音频文件'),
+              title: Text(_c.pickAudioFile),
               onTap: () => Navigator.of(ctx).pop('pick'),
             ),
           ],
@@ -1258,7 +1262,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
         if (!mounted) return;
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('没有麦克风权限')));
+        ).showSnackBar(SnackBar(content: Text(_c.noMicPermission)));
         return;
       }
 
@@ -1315,7 +1319,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
             }
 
             return AlertDialog(
-              title: const Text('按住录音'),
+              title: Text(_c.holdToRecord),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -1355,8 +1359,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
                       ),
                       child: Text(
                         isRecording
-                            ? (cancelOnRelease ? '松开取消' : '松开发送')
-                            : '长按开始录音',
+                            ? (cancelOnRelease
+                                  ? _c.releaseToCancel
+                                  : _c.releaseToSend)
+                            : _c.holdToRecord,
                         style: TextStyle(
                           color: cancelOnRelease
                               ? Colors.red
@@ -1368,7 +1374,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    isRecording ? '上滑取消录音' : '请长按按钮开始录音',
+                    isRecording ? _c.slideUpToCancel : _c.holdButtonToRecord,
                     style: Theme.of(ctx).textTheme.bodySmall,
                   ),
                 ],
@@ -1383,7 +1389,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
                       Navigator.of(ctx).pop();
                     }
                   },
-                  child: const Text('关闭'),
+                  child: Text(_c.close),
                 ),
               ],
             );
@@ -1398,12 +1404,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('录音插件未正确加载，请重新构建后再试')));
+      ).showSnackBar(SnackBar(content: Text(_c.recordPluginNotLoaded)));
     } on PlatformException catch (e) {
       if (!mounted) return;
       final msg = (e.message ?? '').trim();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg.isEmpty ? '录音失败，请稍后重试' : '录音失败：$msg')),
+        SnackBar(
+          content: Text(msg.isEmpty ? _c.recordFailedRetry : _c.recordFailed(msg)),
+        ),
       );
     } finally {
       await recorder.dispose();
@@ -1459,7 +1467,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('发送失败: $e')));
+      ).showSnackBar(SnackBar(content: Text(_c.sendFailed(e))));
     }
   }
 
@@ -1482,7 +1490,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
         builder: (ctx) => StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
             return AlertDialog(
-              title: const Text('编辑消息'),
+              title: Text(_c.editMessage),
               content: ExtendedTextField(
                 controller: controller,
                 maxLines: 4,
@@ -1500,11 +1508,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('取消'),
+                  child: Text(_c.cancel),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('保存'),
+                  child: Text(_c.save),
                 ),
               ],
             );
@@ -1546,7 +1554,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
               ChatRichDocInputFormat.docJson => 'Doc JSON',
             };
             return AlertDialog(
-              title: const Text('编辑富文本'),
+              title: Text(_c.editRichText),
               content: SizedBox(
                 width: 560,
                 child: Column(
@@ -1597,11 +1605,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('取消'),
+                  child: Text(_c.cancel),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('保存'),
+                  child: Text(_c.save),
                 ),
               ],
             );
@@ -1628,7 +1636,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('富文本编辑失败：$e')));
+      ).showSnackBar(SnackBar(content: Text(_c.richTextEditFailed(e))));
     } finally {
       controller.dispose();
     }
@@ -1663,13 +1671,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('已发送 SDK 消息')));
+      ).showSnackBar(SnackBar(content: Text(_c.sdkMessageSent)));
     } catch (e, st) {
       debugPrint('send sdk message build failed: $e\n$st');
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('发送失败：$e')));
+      ).showSnackBar(SnackBar(content: Text(_c.sendFailed(e))));
     }
   }
 
@@ -1682,7 +1690,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
     if (ids.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('没有可转发的消息')));
+      ).showSnackBar(SnackBar(content: Text(_c.nothingToForward)));
       return;
     }
     try {
@@ -1692,19 +1700,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
             _cid,
             messageIds: ids,
             merge: merge,
-            title: merge ? '合并转发 ${ids.length} 条' : '转发消息',
+            title: merge ? _c.forwardMergedCount(ids.length) : _c.forwardMessage,
           );
       _exitMultiSelect();
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('已转发到当前会话')));
+      ).showSnackBar(SnackBar(content: Text(_c.forwardedToCurrent)));
     } catch (e, st) {
       debugPrint('forward selected failed: $e\n$st');
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('转发失败：$e')));
+      ).showSnackBar(SnackBar(content: Text(_c.forwardFailed(e))));
     }
   }
 
@@ -1724,7 +1732,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('删除失败：$e')));
+      ).showSnackBar(SnackBar(content: Text(_c.deleteFailed(e))));
     }
   }
 
@@ -1770,10 +1778,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
       ),
     );
     final conn = ref.watch(connectionStateProvider);
+    final chat = ref.watch(flareMessagesProvider).chat;
 
     final title = conversation?.displayTitle.trim().isNotEmpty == true
         ? conversation!.displayTitle
-        : '聊天';
+        : chat.chatTitle;
     final peerUserId =
         conversation?.conversationType == im.ConversationType.single
         ? (conversation?.peerUserId ?? '').trim()
@@ -1791,8 +1800,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
     final typingText = typingCount <= 0
         ? ''
         : typingCount == 1
-        ? '对方正在输入…'
-        : '$typingCount人正在输入…';
+        ? chat.peerTyping
+        : chat.typingMany(typingCount);
 
     final i18n = ref.watch(flareMessagesProvider);
     final canPop = !widget.embedInWorkbench && Navigator.canPop(context);
@@ -1815,7 +1824,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
         leading: _multiSelectMode
             ? IconButton(
                 icon: const Icon(Icons.close),
-                tooltip: '退出多选',
+                tooltip: chat.exitMultiSelect,
                 onPressed: () {
                   _dismissComposerMoreGrid();
                   _exitMultiSelect();
@@ -1888,21 +1897,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
         actions: _multiSelectMode
             ? [
                 IconButton(
-                  tooltip: '单条转发',
+                  tooltip: chat.forwardSingle,
                   icon: const Icon(Icons.redo_rounded),
                   onPressed: _multiSelectKeys.isEmpty
                       ? null
                       : () => unawaited(_forwardSelected(merge: false)),
                 ),
                 IconButton(
-                  tooltip: '合并转发',
+                  tooltip: chat.forwardMerged,
                   icon: const Icon(Icons.library_books_outlined),
                   onPressed: _multiSelectKeys.length < 2
                       ? null
                       : () => unawaited(_forwardSelected(merge: true)),
                 ),
                 IconButton(
-                  tooltip: '仅自己删除',
+                  tooltip: chat.deleteSelfShort,
                   icon: const Icon(Icons.delete_outline_rounded),
                   onPressed: _multiSelectKeys.isEmpty
                       ? null
@@ -1920,7 +1929,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
                     iconColor: FlareThemeTokens.textSecondary,
                   ),
                 IconButton(
-                  tooltip: 'SDK 消息类型',
+                  tooltip: chat.sdkMessageType,
                   icon: const Icon(
                     Icons.hub_outlined,
                     color: FlareThemeTokens.textSecondary,
@@ -1991,12 +2000,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
                         title: Text(i18n.chat.pullFromServer),
                       ),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'recall_last',
                       child: ListTile(
                         dense: true,
-                        leading: Icon(Icons.undo),
-                        title: Text('撤回最近一条（自己）'),
+                        leading: const Icon(Icons.undo),
+                        title: Text(chat.recallLatestSelf),
                       ),
                     ),
                   ],
@@ -2037,15 +2046,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
                                         .withValues(alpha: 0.45),
                                   ),
                                   const SizedBox(height: 16),
-                                  const Text(
-                                    '暂无消息',
-                                    style: TextStyle(
+                                  Text(
+                                    chat.noMessages,
+                                    style: const TextStyle(
                                       color: FlareImDesign.mutedForeground,
                                     ),
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    '下拉同步',
+                                    chat.pullToSync,
                                     style: TextStyle(
                                       color: FlareImDesign.mutedForeground
                                           .withValues(alpha: 0.85),
@@ -2181,13 +2190,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
   }
 }
 
-class _PresencePill extends StatelessWidget {
+class _PresencePill extends ConsumerWidget {
   const _PresencePill({required this.online});
 
   final bool online;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final chat = ref.watch(flareMessagesProvider).chat;
     final color = online ? const Color(0xFF07C160) : const Color(0xFFB2B2B2);
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -2199,7 +2209,7 @@ class _PresencePill extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         Text(
-          online ? '在线' : '离线',
+          online ? chat.online : chat.offline,
           style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,

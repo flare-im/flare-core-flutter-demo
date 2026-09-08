@@ -54,19 +54,19 @@ abstract final class FlareImDesign {
   static const Color messageBubbleSenderMeta = Color(0xCCFFFFFF);
 
   /// 接收方气泡填充
-  static const Color messageBubbleReceiverFill = Color(0xFFFFFFFF);
+  static const Color messageBubbleReceiverFill = FlareThemeTokens.bgPrimary;
 
   /// 接收方气泡主文案（深灰，非纯黑）
-  static const Color messageBubbleReceiverForeground = Color(0xFF1F2937);
+  static const Color messageBubbleReceiverForeground = FlareThemeTokens.textPrimary;
 
   /// 接收方气泡描边
-  static const Color messageBubbleReceiverBorder = Color(0xFFE5E7EB);
+  static const Color messageBubbleReceiverBorder = FlareThemeTokens.borderPrimary;
 
   /// 接收方描边宽度（设计约 0.5–1px）
   static const double messageBubbleReceiverBorderWidth = 1;
 
   /// 接收方气泡内时间等
-  static const Color messageBubbleReceiverMeta = Color(0xFF9CA3AF);
+  static const Color messageBubbleReceiverMeta = FlareThemeTokens.textTertiary;
 
   /// 己方气泡下方状态行（非文本消息等仍用气泡外提示时）
   static const Color messageBubbleSelfStatusCaption =
@@ -198,7 +198,7 @@ abstract final class FlareImDesign {
       FlareThemeTokens.conversationListSearchStroke;
 
   /// 列表头「搜索」圆形底
-  static const Color listHeaderIconCircleBg = Color(0xFFF3F4F6);
+  static const Color listHeaderIconCircleBg = FlareThemeTokens.bgTertiary;
 
   static const Color pinnedTile = FlareThemeTokens.bgPrimary;
   static const Color pinnedAvatar =

@@ -3,6 +3,7 @@ import 'package:flare_im/domain/value_objects/conversation_type.dart';
 import 'package:flare_im/domain/value_objects/message_content.dart';
 import 'package:flare_im/interface/widgets/message/message_bubble.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -14,9 +15,10 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: MessageBubble(
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: MessageBubble(
             message: Message(
               serverId: '',
               clientMsgId: 'cm1',
@@ -33,7 +35,9 @@ void main() {
               senderDisplayName: '',
             ),
             currentUserId: 'u1',
+            pinToggleLabel: 'Pin message',
             onResend: () => retryCount++,
+            ),
           ),
         ),
       ),

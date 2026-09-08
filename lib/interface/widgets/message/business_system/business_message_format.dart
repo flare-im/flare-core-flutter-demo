@@ -1,22 +1,29 @@
+import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flutter/material.dart';
 
-// 任务状态展示（与业务侧常见英文 key 兼容）。
-String formatTaskStatusLabel(String status) {
+// 任务状态展示（与业务侧常见英文 key 兼容）；文案走 [FlareChatCopy]（中英双语）。
+String formatTaskStatusLabel(String status, FlareChatCopy i18n) {
   final s = status.trim();
-  if (s.isEmpty) return '状态未知';
-  final lower = s.toLowerCase();
-  const map = <String, String>{
-    'todo': '待办',
-    'pending': '待处理',
-    'doing': '进行中',
-    'in_progress': '进行中',
-    'done': '已完成',
-    'completed': '已完成',
-    'closed': '已关闭',
-    'cancelled': '已取消',
-    'canceled': '已取消',
-  };
-  return map[lower] ?? s;
+  if (s.isEmpty) return i18n.statusUnknown;
+  switch (s.toLowerCase()) {
+    case 'todo':
+      return i18n.statusTodo;
+    case 'pending':
+      return i18n.statusPending;
+    case 'doing':
+    case 'in_progress':
+      return i18n.statusInProgress;
+    case 'done':
+    case 'completed':
+      return i18n.statusDone;
+    case 'closed':
+      return i18n.statusClosed;
+    case 'cancelled':
+    case 'canceled':
+      return i18n.statusCancelled;
+    default:
+      return s;
+  }
 }
 
 // 任务状态胶囊样式分支。

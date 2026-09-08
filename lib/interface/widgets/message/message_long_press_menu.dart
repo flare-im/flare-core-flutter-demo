@@ -5,6 +5,7 @@ import 'package:flare_im/domain/value_objects/message_content.dart';
 import 'package:flare_im/infrastructure/media/composer_pack_assets.dart';
 import 'package:flare_im/infrastructure/media/composer_recent_emoji_store.dart';
 import 'package:flare_im/interface/widgets/composer/composer_emoji_pack_thumb.dart';
+import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,6 +36,7 @@ Future<void> showDeleteMessageChoiceDialog(
   Future<void> Function()? onDeleteForSelf,
   Future<void> Function()? onDeleteForEveryone,
   required bool showDeleteForEveryone,
+  required FlareChatCopy i18n,
 }) async {
   final forEveryone = onDeleteForEveryone;
   final canEveryone = showDeleteForEveryone && forEveryone != null;
@@ -44,7 +46,7 @@ Future<void> showDeleteMessageChoiceDialog(
   await showDialog<void>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text('删除消息'),
+      title: Text(i18n.menuDeleteMessage),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -55,8 +57,11 @@ Future<void> showDeleteMessageChoiceDialog(
                 Icons.visibility_off_outlined,
                 color: Colors.orange,
               ),
-              title: const Text('仅为自己删除'),
-              subtitle: const Text('其它成员仍可见', style: TextStyle(fontSize: 12)),
+              title: Text(i18n.menuDeleteSelf),
+              subtitle: Text(
+                i18n.menuDeleteSelfHint,
+                style: const TextStyle(fontSize: 12),
+              ),
               onTap: () async {
                 Navigator.of(ctx).pop();
                 await onDeleteForSelf();
@@ -68,8 +73,11 @@ Future<void> showDeleteMessageChoiceDialog(
                 Icons.delete_forever_outlined,
                 color: FlareThemeTokens.error,
               ),
-              title: const Text('为所有人删除'),
-              subtitle: const Text('从会话中移除该消息', style: TextStyle(fontSize: 12)),
+              title: Text(i18n.menuDeleteForAll),
+              subtitle: Text(
+                i18n.menuDeleteForAllHint,
+                style: const TextStyle(fontSize: 12),
+              ),
               onTap: () async {
                 Navigator.of(ctx).pop();
                 await forEveryone();
@@ -80,7 +88,7 @@ Future<void> showDeleteMessageChoiceDialog(
       actions: [
         TextButton(
           onPressed: () => Navigator.of(ctx).pop(),
-          child: const Text('取消'),
+          child: Text(i18n.cancel),
         ),
       ],
     ),
@@ -98,12 +106,13 @@ Future<void> showMessageLongPressMenu(
   VoidCallback? onMark,
   VoidCallback? onPinToggle,
   VoidCallback? onPinForSelf,
-  String pinLabel = '置顶消息',
+  required String pinLabel,
   VoidCallback? onCopy,
   VoidCallback? onEdit,
   Future<void> Function()? onDeleteForSelf,
   Future<void> Function()? onDeleteForEveryone,
   bool showDeleteForEveryoneOption = false,
+  required FlareChatCopy i18n,
 }) async {
   final hasReaction = onPickReaction != null;
   final hasQuick = onReply != null || onForward != null || onRecall != null;
@@ -122,7 +131,7 @@ Future<void> showMessageLongPressMenu(
       !hasDelete) {
     ScaffoldMessenger.maybeOf(
       parentContext,
-    )?.showSnackBar(const SnackBar(content: Text('暂无可执行操作')));
+    )?.showSnackBar(SnackBar(content: Text(i18n.menuNoActions)));
     return;
   }
 
@@ -192,6 +201,7 @@ Future<void> showMessageLongPressMenu(
                     onDeleteForSelf: onDeleteForSelf,
                     onDeleteForEveryone: onDeleteForEveryone,
                     showDeleteForEveryoneOption: showDeleteForEveryoneOption,
+                    i18n: i18n,
                   ),
                 ),
               ),
@@ -232,6 +242,7 @@ class _MessageLongPressMenuPane extends StatefulWidget {
     this.onDeleteForSelf,
     this.onDeleteForEveryone,
     required this.showDeleteForEveryoneOption,
+    required this.i18n,
   });
 
   final BuildContext sheetCtx;
@@ -261,6 +272,7 @@ class _MessageLongPressMenuPane extends StatefulWidget {
   final Future<void> Function()? onDeleteForSelf;
   final Future<void> Function()? onDeleteForEveryone;
   final bool showDeleteForEveryoneOption;
+  final FlareChatCopy i18n;
 
   @override
   State<_MessageLongPressMenuPane> createState() =>
@@ -375,13 +387,13 @@ class _MessageLongPressMenuPaneState extends State<_MessageLongPressMenuPane> {
                     ),
                   )
                 : keys.isEmpty
-                ? const SizedBox(
+                ? SizedBox(
                     height: 38,
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        '未发现 assets/emoji 资源',
-                        style: TextStyle(
+                        widget.i18n.menuNoEmojiAssets,
+                        style: const TextStyle(
                           fontSize: 12,
                           color: FlareThemeTokens.textSecondary,
                         ),
@@ -452,7 +464,7 @@ class _MessageLongPressMenuPaneState extends State<_MessageLongPressMenuPane> {
           Row(
             children: [
               Text(
-                '选择表情',
+                widget.i18n.menuPickEmoji,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -463,19 +475,22 @@ class _MessageLongPressMenuPaneState extends State<_MessageLongPressMenuPane> {
               InkWell(
                 onTap: _toggleEmojiPicker,
                 borderRadius: BorderRadius.circular(8),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '收起',
-                        style: TextStyle(
+                        widget.i18n.menuCollapse,
+                        style: const TextStyle(
                           fontSize: 12,
                           color: FlareThemeTokens.textLink,
                         ),
                       ),
-                      Icon(
+                      const Icon(
                         Icons.keyboard_arrow_down,
                         size: 18,
                         color: FlareThemeTokens.textLink,
@@ -536,9 +551,9 @@ class _MessageLongPressMenuPaneState extends State<_MessageLongPressMenuPane> {
       quickChildren.add(_detachedQuickTile(fn, icon, label));
     }
 
-    addQuick(reply, Icons.chat_bubble_outline, '回复');
-    addQuick(forward, Icons.redo, '转发');
-    addQuick(recall, Icons.undo_outlined, '撤回');
+    addQuick(reply, Icons.chat_bubble_outline, widget.i18n.menuReply);
+    addQuick(forward, Icons.redo, widget.i18n.menuForward);
+    addQuick(recall, Icons.undo_outlined, widget.i18n.menuRecall);
 
     final columnChildren = <Widget>[];
 
@@ -567,13 +582,13 @@ class _MessageLongPressMenuPaneState extends State<_MessageLongPressMenuPane> {
               if (multiSelect != null)
                 _SheetListRow(
                   icon: Icons.checklist_rtl,
-                  label: '多选',
+                  label: widget.i18n.menuMultiSelect,
                   onTap: () => widget.closeThen(multiSelect),
                 ),
               if (mark != null)
                 _SheetListRow(
                   icon: Icons.flag_outlined,
-                  label: '标记',
+                  label: widget.i18n.menuMark,
                   onTap: () => widget.closeThen(mark),
                 ),
             ],
@@ -596,7 +611,7 @@ class _MessageLongPressMenuPaneState extends State<_MessageLongPressMenuPane> {
               if (pinForSelf != null)
                 _SheetListRow(
                   icon: Icons.push_pin_outlined,
-                  label: '仅自己置顶',
+                  label: widget.i18n.menuPinSelf,
                   onTap: () => widget.closeThen(pinForSelf),
                 ),
             ],
@@ -620,13 +635,13 @@ class _MessageLongPressMenuPaneState extends State<_MessageLongPressMenuPane> {
               if (copy != null)
                 _SheetListRow(
                   icon: Icons.copy_outlined,
-                  label: '复制',
+                  label: widget.i18n.menuCopy,
                   onTap: () => widget.closeThen(copy),
                 ),
               if (edit != null)
                 _SheetListRow(
                   icon: Icons.edit_outlined,
-                  label: '编辑',
+                  label: widget.i18n.menuEdit,
                   onTap: () => widget.closeThen(edit),
                 ),
             ],
@@ -651,7 +666,7 @@ class _MessageLongPressMenuPaneState extends State<_MessageLongPressMenuPane> {
             children: [
               _SheetListRow(
                 icon: Icons.delete_outline,
-                label: '删除',
+                label: widget.i18n.menuDelete,
                 iconColor: FlareThemeTokens.error,
                 textColor: FlareThemeTokens.error,
                 onTap: () async {
@@ -663,6 +678,7 @@ class _MessageLongPressMenuPaneState extends State<_MessageLongPressMenuPane> {
                     onDeleteForSelf: widget.onDeleteForSelf,
                     onDeleteForEveryone: widget.onDeleteForEveryone,
                     showDeleteForEveryone: widget.showDeleteForEveryoneOption,
+                    i18n: widget.i18n,
                   );
                 },
               ),
@@ -753,16 +769,20 @@ class _SheetListRow extends StatelessWidget {
 }
 
 /// 复制到剪贴板并提示。
-void copyMessageToClipboard(BuildContext context, Message message) {
+void copyMessageToClipboard(
+  BuildContext context,
+  Message message,
+  FlareChatCopy i18n,
+) {
   final text = messageCopyPlainText(message);
   if (text == null || text.trim().isEmpty) {
     ScaffoldMessenger.maybeOf(
       context,
-    )?.showSnackBar(const SnackBar(content: Text('没有可复制的内容')));
+    )?.showSnackBar(SnackBar(content: Text(i18n.menuNothingToCopy)));
     return;
   }
   Clipboard.setData(ClipboardData(text: text));
   ScaffoldMessenger.maybeOf(
     context,
-  )?.showSnackBar(const SnackBar(content: Text('已复制')));
+  )?.showSnackBar(SnackBar(content: Text(i18n.copied)));
 }

@@ -1,3 +1,4 @@
+import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/domain/value_objects/conversation_type.dart';
 import 'package:flare_im/domain/value_objects/message_content.dart';
 import 'package:flare_im/interface/widgets/message/views/announcement_view.dart';
@@ -21,9 +22,10 @@ import 'package:flare_im/interface/widgets/message/views/text_view.dart';
 import 'package:flare_im/interface/widgets/message/views/video_view.dart';
 import 'package:flare_im/interface/widgets/message/views/vote_view.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 按 [MessageContent] 分发各类型子视图。
-class ContentView extends StatelessWidget {
+class ContentView extends ConsumerWidget {
   final MessageContent content;
   final bool isSelf;
 
@@ -50,7 +52,8 @@ class ContentView extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final i18n = ref.watch(flareMessagesProvider).chat;
     switch (content) {
       case TextContent(:final text):
         return TextView(
@@ -61,7 +64,7 @@ class ContentView extends StatelessWidget {
         );
       case RichDocContent(:final plainText):
         return TextView(
-          text: plainText.trim().isNotEmpty ? plainText.trim() : '[富文本]',
+          text: plainText.trim().isNotEmpty ? plainText.trim() : i18n.richTextTag,
           isSelf: isSelf,
           messageStatus: isSelf ? messageStatus : null,
           bubbleFooter: bubbleFooter,
@@ -175,7 +178,9 @@ class ContentView extends StatelessWidget {
       case ThreadReplyContent(:final text):
         final displayText = text.trim();
         return TextView(
-          text: displayText.isNotEmpty ? '[话题] $displayText' : '[话题]',
+          text: displayText.isNotEmpty
+              ? i18n.topicTag(displayText)
+              : i18n.topicTagPlain,
           isSelf: isSelf,
           messageStatus: isSelf ? messageStatus : null,
           bubbleFooter: bubbleFooter,

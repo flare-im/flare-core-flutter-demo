@@ -1,10 +1,12 @@
+import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/interface/theme/flare_im_design.dart';
 import 'package:flare_im/interface/widgets/message/business_system/system_feature_bridge.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 日程提醒卡片：顶栏 + 分隔线 + 时间与地点行 + 底部「查看日程」（不展示 ID）。
-class ScheduleView extends StatelessWidget {
+class ScheduleView extends ConsumerWidget {
   static const double _maxWidth = 320;
   static const double _radius = 12;
   static const double _accentW = 4;
@@ -50,8 +52,9 @@ class ScheduleView extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final t = title ?? '日程';
+  Widget build(BuildContext context, WidgetRef ref) {
+    final i18n = ref.watch(flareMessagesProvider).chat;
+    final t = title ?? i18n.typeSchedule;
     final participantLine = participantUserIds
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
@@ -64,7 +67,7 @@ class ScheduleView extends StatelessWidget {
         .toList();
 
     return Semantics(
-      label: '日程：$t',
+      label: i18n.schedulePrefix(t),
       button: true,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: _maxWidth),
@@ -97,17 +100,17 @@ class ScheduleView extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Row(
+                          Row(
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.calendar_month_rounded,
                                 size: 22,
                                 color: _accent,
                               ),
-                              SizedBox(width: 8),
+                              const SizedBox(width: 8),
                               Text(
-                                '日程提醒',
-                                style: TextStyle(
+                                i18n.scheduleReminder,
+                                style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
                                   color: Color(0xFF1F2937),
@@ -188,7 +191,7 @@ class ScheduleView extends StatelessWidget {
                           if (participantLine.isNotEmpty) ...[
                             const SizedBox(height: 8),
                             Text(
-                              '参与人 · $participantLine',
+                              i18n.scheduleParticipants(participantLine),
                               style: const TextStyle(
                                 fontSize: 12,
                                 height: 1.4,
@@ -216,9 +219,9 @@ class ScheduleView extends StatelessWidget {
                               ).copyWith(dividerColor: Colors.transparent),
                               child: ExpansionTile(
                                 tilePadding: EdgeInsets.zero,
-                                title: const Text(
-                                  '业务参数',
-                                  style: TextStyle(
+                                title: Text(
+                                  i18n.businessParams,
+                                  style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500,
                                     color: FlareThemeTokens.textSecondary,
@@ -267,9 +270,9 @@ class ScheduleView extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              child: const Text(
-                                '查看日程',
-                                style: TextStyle(
+                              child: Text(
+                                i18n.viewSchedule,
+                                style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                 ),

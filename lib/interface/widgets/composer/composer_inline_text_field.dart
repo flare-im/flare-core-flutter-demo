@@ -1,10 +1,12 @@
 import 'package:extended_text_field/extended_text_field.dart';
+import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 会话内统一输入外观：白底、无描边、小圆角；聚焦无主题描边。
 /// 用于主栏输入、表情面板草稿、展开编辑器等，通过参数区分行数/展开按钮等。
-class ComposerInlineTextField extends StatelessWidget {
+class ComposerInlineTextField extends ConsumerWidget {
   const ComposerInlineTextField({
     super.key,
     required this.controller,
@@ -64,7 +66,8 @@ class ComposerInlineTextField extends StatelessWidget {
   final BoxConstraints? suffixIconConstraints;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = ref.watch(flareMessagesProvider).composer;
     final expandColor = FlareThemeTokens.textSecondary.withValues(alpha: 0.88);
     final decoration = InputDecoration(
       hintText: hintText,
@@ -89,7 +92,7 @@ class ComposerInlineTextField extends StatelessWidget {
               heightFactor: 1,
               alignment: Alignment.topRight,
               child: IconButton(
-                tooltip: '展开输入',
+                tooltip: c.expandInput,
                 style: IconButton.styleFrom(
                   foregroundColor: expandColor,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,

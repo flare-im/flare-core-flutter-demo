@@ -1,18 +1,21 @@
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/domain/value_objects/conversation_type.dart';
 import 'package:flare_im/infrastructure/media/network_image_policy.dart';
 import 'package:flare_im/interface/theme/flare_im_design.dart';
 import 'package:flare_im/interface/widgets/media_viewer/image_preview_modal.dart';
 import 'package:flare_im/interface/widgets/message/message_style.dart';
+import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 多图（相册）：九宫格布局，最多展示 9 格；超过 9 张时第 9 格上叠 `+N`。
 ///
 /// 与常见 IM 一致：1 格单列，2 格双列，3–4 格 2×2，5–9 格 3 列；格间细分割线与底栏（张数 + 时间/状态）参照单图气泡。
-class ImageGroupView extends StatelessWidget {
+class ImageGroupView extends ConsumerWidget {
   static const int _maxCells = 9;
   static const double _maxBubbleWidth = 240;
   static const double _gap = 1;
@@ -42,21 +45,25 @@ class ImageGroupView extends StatelessWidget {
 
   static int _rowCount(int n, int cols) => (n + cols - 1) ~/ cols;
 
-  static String _photoCountLabel(int total) {
-    if (total <= 0) return '照片';
-    return '$total张照片';
+  static String _photoCountLabel(int total, FlareChatCopy i18n) {
+    if (total <= 0) return i18n.photos;
+    return i18n.photosCount(total);
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final i18n = ref.watch(flareMessagesProvider).chat;
     final all = imageUrls
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toList();
     if (all.isEmpty) {
-      return const Text(
-        '[图片组]',
-        style: TextStyle(fontSize: 13, color: FlareThemeTokens.textSecondary),
+      return Text(
+        i18n.imageGroupTag,
+        style: const TextStyle(
+          fontSize: 13,
+          color: FlareThemeTokens.textSecondary,
+        ),
       );
     }
 
@@ -144,7 +151,7 @@ class ImageGroupView extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          _photoCountLabel(totalCount),
+                          _photoCountLabel(totalCount, i18n),
                           style: TextStyle(
                             color: footerFg,
                             fontSize: 12,

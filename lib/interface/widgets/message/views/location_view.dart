@@ -2,17 +2,20 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/domain/value_objects/conversation_type.dart';
 import 'package:flare_im/infrastructure/media/network_image_policy.dart';
 import 'package:flare_im/interface/theme/flare_im_design.dart';
 import 'package:flare_im/interface/widgets/message/message_style.dart';
+import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 // 位置消息：地图预览、标题地址、气泡样式；送达态仅己方。
-class LocationView extends StatelessWidget {
+class LocationView extends ConsumerWidget {
   final double latitude;
   final double longitude;
   final String? address;
@@ -53,7 +56,7 @@ class LocationView extends StatelessWidget {
   /// `uri.amap.com` 在移动端常可唤起高德 App；无坐标时用关键词搜索。
   ///
   /// [position] 为「经度,纬度」。若业务侧坐标为 WGS84，可追加 `coordinate: 'wgs84'`。
-  Uri? _launchMapUri() {
+  Uri? _launchMapUri(FlareChatCopy i18n) {
     final t = title?.trim();
     final addr = address?.trim();
     final hasValidCoords =
@@ -66,7 +69,7 @@ class LocationView extends StatelessWidget {
           ? t
           : (addr != null && addr.isNotEmpty)
           ? addr
-          : '位置';
+          : i18n.typeLocation;
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
         return Uri.parse(
           'geo:$latitude,$longitude?q=${Uri.encodeComponent('$latitude,$longitude($name)')}',
@@ -105,12 +108,12 @@ class LocationView extends StatelessWidget {
     );
   }
 
-  Future<void> _openMap(BuildContext context) async {
-    final uri = _launchMapUri();
+  Future<void> _openMap(BuildContext context, FlareChatCopy i18n) async {
+    final uri = _launchMapUri(i18n);
     if (uri == null) {
       ScaffoldMessenger.maybeOf(
         context,
-      )?.showSnackBar(const SnackBar(content: Text('无法打开地图')));
+      )?.showSnackBar(SnackBar(content: Text(i18n.cannotOpenMap)));
       return;
     }
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -118,19 +121,20 @@ class LocationView extends StatelessWidget {
     if (!ok) {
       ScaffoldMessenger.maybeOf(
         context,
-      )?.showSnackBar(const SnackBar(content: Text('无法打开地图')));
+      )?.showSnackBar(SnackBar(content: Text(i18n.cannotOpenMap)));
     }
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final i18n = ref.watch(flareMessagesProvider).chat;
     final t = title?.trim();
     final addr = address?.trim();
     final titleText = (t != null && t.isNotEmpty)
         ? t
         : (addr != null && addr.isNotEmpty)
         ? addr
-        : '位置';
+        : i18n.typeLocation;
     final subtitleText =
         (t != null && t.isNotEmpty && addr != null && addr.isNotEmpty)
         ? addr
@@ -181,7 +185,7 @@ class LocationView extends StatelessWidget {
             color: Colors.transparent,
             child: InkWell(
               borderRadius: BorderRadius.circular(bubbleR),
-              onTap: () => _openMap(context),
+              onTap: () => _openMap(context, i18n),
               child: Ink(
                 decoration: MessageBubbleStyle.bubbleDecoration(
                   context,

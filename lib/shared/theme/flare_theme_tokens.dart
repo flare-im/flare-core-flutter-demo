@@ -1,4 +1,6 @@
-// GENERATED. Do not edit by hand.
+// 基础 token 对齐自 kit flare-im-design/tokens/tokens.json（三端单一真源）。
+// 品牌/语义色 + app 复合 token(login*/conversationList*/composer* 等)保留;
+// 中性色阶/圆角已收敛到 kit,消除与 iOS/Android 的漂移。
 
 import 'package:flutter/material.dart';
 
@@ -17,28 +19,28 @@ abstract final class FlareThemeTokens {
   static const Color pinned = Color(0xFF7C3AED);
 
   static const Color bgPrimary = Color(0xFFFFFFFF);
-  static const Color bgSecondary = Color(0xFFF5F6F8);
-  static const Color bgTertiary = Color(0xFFF2F3F5);
-  static const Color bgHover = Color(0xFFEEF1F6);
+  static const Color bgSecondary = Color(0xFFF6F5FB);
+  static const Color bgTertiary = Color(0xFFF3F1F9);
+  static const Color bgHover = Color(0xFFF1EEF8);
   static const Color bgSelected = Color(0xFFF1EAFF);
-  static const Color bgDisabled = Color(0xFFF2F3F5);
+  static const Color bgDisabled = Color(0xFFF3F1F9);
 
-  static const Color textPrimary = Color(0xFF111318);
-  static const Color textSecondary = Color(0xFF6B7280);
-  static const Color textTertiary = Color(0xFFA3A7AE);
-  static const Color textDisabled = Color(0xFFC9CDD4);
+  static const Color textPrimary = Color(0xFF15131C);
+  static const Color textSecondary = Color(0xFF6B6780);
+  static const Color textTertiary = Color(0xFFA7A2B4);
+  static const Color textDisabled = Color(0xFFCCC8D8);
   static const Color textLink = Color(0xFF7C3AED);
   static const Color textLinkHover = Color(0xFF6D28D9);
 
-  static const Color borderPrimary = Color(0xFFE7E9EE);
-  static const Color borderSecondary = Color(0xFFEEF0F4);
-  static const Color borderHover = Color(0xFFD7DBE3);
+  static const Color borderPrimary = Color(0xFFE9E6F1);
+  static const Color borderSecondary = Color(0xFFF0EDF7);
+  static const Color borderHover = Color(0xFFDAD5E7);
   static const Color borderSelected = Color(0xFF7C3AED);
 
   static const Color bubbleSelf = Color(0xFF7C3AED);
   static const Color bubbleOther = Color(0xFFECE5FF);
   static const Color bubbleRobot = Color(0xFFF4F0FF);
-  static const Color bubbleSystem = Color(0xFFF2F3F5);
+  static const Color bubbleSystem = Color(0xFFF3F1F9);
 
   static const Color loginScreenCanvas = Color(0xFFFFFFFF);
   static const Color loginLogoBackground = Color(0xFFFFFFFF);
@@ -52,11 +54,13 @@ abstract final class FlareThemeTokens {
   static const Color loginInputBorder = Color(0xFFE5E5E5);
   static const Color loginInputFill = Color(0xFFF5F6F8);
 
-  static const double radiusXs = 2;
-  static const double radiusSm = 4;
-  static const double radiusMd = 6;
-  static const double radiusLg = 8;
-  static const double radiusXl = 12;
+  static const double radiusXs = 3;
+  static const double radiusSm = 6;
+  static const double radiusMd = 8;
+  static const double radiusLg = 10;
+  static const double radiusXl = 14;
+  static const double radius2xl = 18;
+  static const double radiusFull = 999;
 
   static const double spacingXs = 4;
   static const double spacingSm = 8;
@@ -105,19 +109,19 @@ abstract final class FlareThemeTokens {
 }
 
 abstract final class FlareDarkThemeTokens {
-  static const Color bgPrimary = Color(0xFF1A1D23);
-  static const Color bgSecondary = Color(0xFF111318);
-  static const Color bgTertiary = Color(0xFF22262E);
-  static const Color bgHover = Color(0xFF262626);
-  static const Color bgSelected = Color(0xFF2B2147);
+  static const Color bgPrimary = Color(0xFF1B1922);
+  static const Color bgSecondary = Color(0xFF131019);
+  static const Color bgTertiary = Color(0xFF232030);
+  static const Color bgHover = Color(0x0FFFFFFF);
+  static const Color bgSelected = Color(0x337C3AED);
 
-  static const Color textPrimary = Color(0xFFFFFFFF);
-  static const Color textSecondary = Color(0xFFA6A6A6);
-  static const Color textTertiary = Color(0xFF6B7280);
+  static const Color textPrimary = Color(0xF0FFFFFF);
+  static const Color textSecondary = Color(0x9EFFFFFF);
+  static const Color textTertiary = Color(0x66FFFFFF);
   static const Color textLink = Color(0xFFC4B5FD);
 
-  static const Color borderPrimary = Color(0xFF3A3F4A);
-  static const Color borderSecondary = Color(0xFF2F3440);
+  static const Color borderPrimary = Color(0x1AFFFFFF);
+  static const Color borderSecondary = Color(0x14FFFFFF);
   static const Color borderSelected = Color(0xFFA78BFA);
 
   static const Color bubbleSelf = Color(0xFF8B5CF6);

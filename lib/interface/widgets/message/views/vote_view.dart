@@ -1,16 +1,19 @@
 import 'dart:math' as math;
 
+import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/domain/value_objects/conversation_type.dart';
 import 'package:flare_im/interface/theme/flare_im_design.dart';
 import 'package:flare_im/interface/widgets/message/business_system/system_feature_bridge.dart';
 import 'package:flare_im/interface/widgets/message/message_style.dart';
+import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 投票消息卡片：仅作业务系统入口，真实投票在 App 内完成；不展示百分比或结果条。
 ///
 /// 视觉综合「发起投票」头区 + 左侧强调条 + 编号选项胶囊 + 底栏说明与 CTA。
-class VoteView extends StatelessWidget {
+class VoteView extends ConsumerWidget {
   final bool isSelf;
   final String? voteId;
   final String? headline;
@@ -36,10 +39,10 @@ class VoteView extends StatelessWidget {
   static const double _hPad = 10;
   static const double _optionRadius = 14;
 
-  String _titleLine() {
+  String _titleLine(FlareChatCopy i18n) {
     final h = headline?.trim();
     if (h != null && h.isNotEmpty) return h;
-    return '投票';
+    return i18n.typeVote;
   }
 
   String? _metaPick(String key) {
@@ -49,20 +52,20 @@ class VoteView extends StatelessWidget {
   }
 
   /// 标题下方副文案：参与人展示等（业务侧通过 metadata 下发）。
-  String? _participantLine() {
+  String? _participantLine(FlareChatCopy i18n) {
     final direct = _metaPick('participants') ?? _metaPick('participantNames');
-    if (direct != null) return '参与人 · $direct';
+    if (direct != null) return i18n.voteParticipantLine(direct);
     return null;
   }
 
   /// 选项数说明（引导到业务 App）。
-  String? _optionsHintLine() {
+  String? _optionsHintLine(FlareChatCopy i18n) {
     if (options.isEmpty) return null;
-    return '共 ${options.length} 个选项 · 在 App 内完成选择';
+    return i18n.voteOptionsHint(options.length);
   }
 
   /// 卡片最底部灰字：如「23 人参与 · 已截止」。
-  String? _footerStatusLine() {
+  String? _footerStatusLine(FlareChatCopy i18n) {
     final custom = _metaPick('footer') ?? _metaPick('statusLine');
     if (custom != null) return custom;
 
@@ -74,7 +77,8 @@ class VoteView extends StatelessWidget {
         _metaPick('status') ?? _metaPick('voteStatus') ?? _metaPick('state');
     final parts = <String>[];
     if (count != null && count.isNotEmpty) {
-      parts.add('$count 人参与');
+      final n = int.tryParse(count);
+      parts.add(n != null ? i18n.voteParticipants(n) : count);
     }
     if (status != null && status.isNotEmpty) {
       parts.add(status);
@@ -109,16 +113,17 @@ class VoteView extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final i18n = ref.watch(flareMessagesProvider).chat;
     final light = Theme.of(context).brightness == Brightness.light;
     final readIconColor = light
         ? FlareImDesign.messageBubbleSenderFill
         : FlareThemeTokens.primary;
 
-    final title = _titleLine();
-    final participantLine = _participantLine();
-    final optionsHint = _optionsHintLine();
-    final footerLine = _footerStatusLine();
+    final title = _titleLine(i18n);
+    final participantLine = _participantLine(i18n);
+    final optionsHint = _optionsHintLine(i18n);
+    final footerLine = _footerStatusLine(i18n);
     final canOpen = voteId != null && voteId!.trim().isNotEmpty;
     final hasFooterTime =
         footerTimeText != null && footerTimeText!.trim().isNotEmpty;
@@ -147,7 +152,7 @@ class VoteView extends StatelessWidget {
                     _openVote();
                   } else {
                     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-                      const SnackBar(content: Text('暂无法打开投票（缺少 voteId）')),
+                      SnackBar(content: Text(i18n.voteNoId)),
                     );
                   }
                 },
@@ -188,7 +193,7 @@ class VoteView extends StatelessWidget {
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
-                                        '发起投票',
+                                        i18n.startVote,
                                         style: TextStyle(
                                           fontSize: 13,
                                           height: 1.25,
@@ -341,9 +346,9 @@ class VoteView extends StatelessWidget {
                                           constraints: BoxConstraints(
                                             maxWidth: innerTextMax,
                                           ),
-                                          child: const Text(
-                                            '选项与投票请在 App 内完成',
-                                            style: TextStyle(
+                                          child: Text(
+                                            i18n.voteInAppHint,
+                                            style: const TextStyle(
                                               fontSize: 12,
                                               height: 1.35,
                                               color: metaColor,
@@ -399,9 +404,9 @@ class VoteView extends StatelessWidget {
                                                     ScaffoldMessenger.maybeOf(
                                                       context,
                                                     )?.showSnackBar(
-                                                      const SnackBar(
+                                                      SnackBar(
                                                         content: Text(
-                                                          '暂无法打开投票（缺少 voteId）',
+                                                          i18n.voteNoId,
                                                         ),
                                                       ),
                                                     );
@@ -421,14 +426,15 @@ class VoteView extends StatelessWidget {
                                                       .withValues(alpha: 0.45),
                                                 ),
                                               ),
-                                              child: const Padding(
-                                                padding: EdgeInsets.symmetric(
-                                                  vertical: 6,
-                                                ),
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 6,
+                                                    ),
                                                 child: Center(
                                                   child: Text(
-                                                    '参与投票',
-                                                    style: TextStyle(
+                                                    i18n.joinVote,
+                                                    style: const TextStyle(
                                                       fontSize: 13,
                                                       fontWeight:
                                                           FontWeight.w600,

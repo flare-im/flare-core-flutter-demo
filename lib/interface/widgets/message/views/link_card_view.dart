@@ -1,20 +1,23 @@
 import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/domain/value_objects/conversation_type.dart';
 import 'package:flare_im/infrastructure/media/network_image_policy.dart';
 import 'package:flare_im/interface/theme/flare_im_design.dart';
 import 'package:flare_im/interface/widgets/message/message_style.dart';
 import 'package:flare_im/interface/widgets/message/plain_text_emoji_rich.dart';
+import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 // 链接卡片。
 ///
 /// 仅当消息携带合法 [thumbnailUrl] 时展示顶部预览图；无缩略图时不占上方区域。
 /// 下方为域名行 + 标题 + 摘要；统一气泡样式；不展示时间；送达状态仅己方显示。
-class LinkCardView extends StatelessWidget {
+class LinkCardView extends ConsumerWidget {
   final bool isSelf;
   final String? title;
   final String url;
@@ -36,26 +39,26 @@ class LinkCardView extends StatelessWidget {
 
   static const double _previewHeight = 132;
 
-  String _domainLine() {
+  String _domainLine(FlareChatCopy i18n) {
     final u = Uri.tryParse(url.trim());
     if (u != null && u.host.isNotEmpty) return u.host;
     final sn = siteName?.trim();
     if (sn != null && sn.isNotEmpty) return sn;
-    return '链接';
+    return i18n.typeLink;
   }
 
-  String _titleLine() {
+  String _titleLine(FlareChatCopy i18n) {
     final t = title?.trim();
     if (t != null && t.isNotEmpty) return t;
-    return _domainLine();
+    return _domainLine(i18n);
   }
 
-  Future<void> _openLink(BuildContext context) async {
+  Future<void> _openLink(BuildContext context, FlareChatCopy i18n) async {
     final u = Uri.tryParse(url.trim());
     if (u == null || (u.scheme != 'http' && u.scheme != 'https')) {
       ScaffoldMessenger.maybeOf(
         context,
-      )?.showSnackBar(const SnackBar(content: Text('无法打开链接')));
+      )?.showSnackBar(SnackBar(content: Text(i18n.cannotOpenLink)));
       return;
     }
     final ok = await launchUrl(u, mode: LaunchMode.externalApplication);
@@ -63,12 +66,13 @@ class LinkCardView extends StatelessWidget {
     if (!ok) {
       ScaffoldMessenger.maybeOf(
         context,
-      )?.showSnackBar(const SnackBar(content: Text('无法打开链接')));
+      )?.showSnackBar(SnackBar(content: Text(i18n.cannotOpenLink)));
     }
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final i18n = ref.watch(flareMessagesProvider).chat;
     final light = Theme.of(context).brightness == Brightness.light;
     final readIconColor = light
         ? FlareImDesign.messageBubbleSenderFill
@@ -115,7 +119,7 @@ class LinkCardView extends StatelessWidget {
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(bubbleR),
-                onTap: () => _openLink(context),
+                onTap: () => _openLink(context, i18n),
                 child: Ink(
                   decoration: MessageBubbleStyle.bubbleDecoration(
                     context,
@@ -194,7 +198,7 @@ class LinkCardView extends StatelessWidget {
                                       ),
                                     ),
                                     child: Text(
-                                      _domainLine(),
+                                      _domainLine(i18n),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
@@ -213,7 +217,7 @@ class LinkCardView extends StatelessWidget {
                                   maxWidth: innerTextMax,
                                 ),
                                 child: PlainTextEmojiRich(
-                                  text: _titleLine(),
+                                  text: _titleLine(i18n),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(

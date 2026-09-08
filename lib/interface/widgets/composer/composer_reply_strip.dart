@@ -1,9 +1,11 @@
+import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/interface/widgets/composer/composer_models.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 引用回复顶条。
-class ComposerReplyStrip extends StatelessWidget {
+class ComposerReplyStrip extends ConsumerWidget {
   final ComposerReplyQuote quote;
   final VoidCallback? onClear;
   final bool previewWarn;
@@ -16,7 +18,8 @@ class ComposerReplyStrip extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = ref.watch(flareMessagesProvider).composer;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: DecoratedBox(
@@ -33,7 +36,7 @@ class ComposerReplyStrip extends StatelessWidget {
                 onPressed: onClear,
                 icon: const Icon(Icons.close, size: 20),
                 color: FlareThemeTokens.composerReplyStripClose,
-                tooltip: '取消回复',
+                tooltip: c.cancelReply,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
@@ -46,7 +49,7 @@ class ComposerReplyStrip extends StatelessWidget {
               Flexible(
                 flex: 2,
                 child: Text(
-                  '回复 ${quote.senderName}:',
+                  c.replyTo(quote.senderName),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

@@ -12,23 +12,22 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 class SdkLabScreen extends HookConsumerWidget {
   const SdkLabScreen({super.key});
 
-  static const _tabs = [
-    Tab(text: '诊断'),
-    Tab(text: '事件'),
-    Tab(text: 'Builder'),
-    Tab(text: '媒体'),
-    Tab(text: 'Presence'),
-    Tab(text: '能力/通话'),
-    Tab(text: 'Raw Ops'),
-    Tab(text: 'Reset'),
-  ];
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tabController = useTabController(initialLength: _tabs.length);
+    final tabController = useTabController(initialLength: 8);
     final state = ref.watch(sdkLabProvider);
     final notifier = ref.read(sdkLabProvider.notifier);
     final i18n = ref.watch(flareMessagesProvider);
+    final tabs = [
+      Tab(text: i18n.sdkLab.tabDiagnostics),
+      Tab(text: i18n.sdkLab.tabEvents),
+      const Tab(text: 'Builder'),
+      Tab(text: i18n.sdkLab.tabMedia),
+      const Tab(text: 'Presence'),
+      Tab(text: i18n.sdkLab.tabCapabilityCall),
+      const Tab(text: 'Raw Ops'),
+      const Tab(text: 'Reset'),
+    ];
 
     useEffect(() {
       Future.microtask(notifier.refresh);
@@ -49,7 +48,7 @@ class SdkLabScreen extends HookConsumerWidget {
         bottom: TabBar(
           controller: tabController,
           isScrollable: true,
-          tabs: _tabs,
+          tabs: tabs,
         ),
       ),
       body: Stack(
@@ -101,14 +100,15 @@ class _DiagnosticsSection extends StatelessWidget {
   }
 }
 
-class _EventConsoleSection extends StatelessWidget {
+class _EventConsoleSection extends ConsumerWidget {
   const _EventConsoleSection({required this.state, required this.onClear});
 
   final SdkLabSnapshot state;
   final VoidCallback onClear;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lab = ref.watch(flareMessagesProvider).sdkLab;
     return _SectionList(
       children: [
         Row(
@@ -122,12 +122,12 @@ class _EventConsoleSection extends StatelessWidget {
             TextButton.icon(
               onPressed: onClear,
               icon: const Icon(Icons.cleaning_services_outlined, size: 18),
-              label: const Text('清空'),
+              label: Text(lab.clear),
             ),
           ],
         ),
         if (state.events.isEmpty)
-          const _EmptyHint(text: '暂无事件。登录、同步、发送消息或执行 Lab 操作后会记录。')
+          _EmptyHint(text: lab.eventsEmpty)
         else
           for (final event in state.events)
             _TimelineTile(
@@ -140,14 +140,15 @@ class _EventConsoleSection extends StatelessWidget {
   }
 }
 
-class _BuilderSection extends HookWidget {
+class _BuilderSection extends HookConsumerWidget {
   const _BuilderSection({required this.state, required this.notifier});
 
   final SdkLabSnapshot state;
   final SdkLabNotifier notifier;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lab = ref.watch(flareMessagesProvider).sdkLab;
     final entries = state.builderOperations;
     final selectedOp = useState<String?>(null);
     final selectedEntry = entries.isEmpty
@@ -174,7 +175,7 @@ class _BuilderSection extends HookWidget {
               ),
               const SizedBox(height: 10),
               if (entries.isEmpty)
-                const _EmptyHint(text: '暂无 builder catalog，刷新后查看 SDK 返回的构建能力。')
+                _EmptyHint(text: lab.builderEmpty)
               else ...[
                 DropdownButtonFormField<String>(
                   initialValue:
@@ -251,14 +252,15 @@ class _BuilderSection extends HookWidget {
   }
 }
 
-class _MediaSection extends HookWidget {
+class _MediaSection extends HookConsumerWidget {
   const _MediaSection({required this.state, required this.notifier});
 
   final SdkLabSnapshot state;
   final SdkLabNotifier notifier;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lab = ref.watch(flareMessagesProvider).sdkLab;
     final mediaIdController = useTextEditingController();
     final fileIdController = useTextEditingController();
     final downloadKeyController = useTextEditingController(
@@ -277,22 +279,22 @@ class _MediaSection extends HookWidget {
           actions: [
             _LabAction(
               icon: Icons.cleaning_services_outlined,
-              label: '清理缓存',
+              label: lab.clearCache,
               onPressed: notifier.clearMediaCache,
             ),
             _LabAction(
               icon: Icons.sd_storage_outlined,
-              label: '设 256MB 上限',
+              label: lab.setCacheLimit,
               onPressed: notifier.setMediaCacheMaxBytes,
             ),
             _LabAction(
               icon: Icons.folder_outlined,
-              label: '下载目录',
+              label: lab.downloadDir,
               onPressed: notifier.getUserDownloadSubfolder,
             ),
             _LabAction(
               icon: Icons.create_new_folder_outlined,
-              label: '设 Lab 目录',
+              label: lab.setLabDir,
               onPressed: notifier.setUserDownloadSubfolder,
             ),
           ],
@@ -312,22 +314,22 @@ class _MediaSection extends HookWidget {
                 actions: [
                   _LabAction(
                     icon: Icons.upload_file_outlined,
-                    label: '上传文件',
+                    label: lab.uploadFile,
                     onPressed: () => _pickAndUpload(notifier, kind: 'file'),
                   ),
                   _LabAction(
                     icon: Icons.image_outlined,
-                    label: '上传图片',
+                    label: lab.uploadImage,
                     onPressed: () => _pickAndUpload(notifier, kind: 'image'),
                   ),
                   _LabAction(
                     icon: Icons.video_file_outlined,
-                    label: '上传视频',
+                    label: lab.uploadVideo,
                     onPressed: () => _pickAndUpload(notifier, kind: 'video'),
                   ),
                   _LabAction(
                     icon: Icons.data_object_outlined,
-                    label: '上传 Bytes',
+                    label: lab.uploadBytes,
                     onPressed: notifier.uploadBytesSample,
                   ),
                 ],
@@ -444,7 +446,7 @@ class _MediaSection extends HookWidget {
                 actions: [
                   _LabAction(
                     icon: Icons.folder_open_outlined,
-                    label: '选择源文件',
+                    label: lab.pickSourceFile,
                     onPressed: () async {
                       final path = await _pickPath();
                       if (path != null) sourcePathController.text = path;
@@ -452,7 +454,7 @@ class _MediaSection extends HookWidget {
                   ),
                   _LabAction(
                     icon: Icons.download_for_offline_outlined,
-                    label: '下载/保存',
+                    label: lab.downloadSave,
                     onPressed: () => notifier.downloadFileToDownloads(
                       downloadKey: downloadKeyController.text,
                       displayFileName: displayFileNameController.text,
@@ -463,21 +465,21 @@ class _MediaSection extends HookWidget {
                   ),
                   _LabAction(
                     icon: Icons.manage_search_outlined,
-                    label: '查询保存路径',
+                    label: lab.querySavePath,
                     onPressed: () => notifier.getUserDownloadSavedPath(
                       downloadKeyController.text,
                     ),
                   ),
                   _LabAction(
                     icon: Icons.cancel_outlined,
-                    label: '取消下载',
+                    label: lab.cancelDownload,
                     onPressed: () => notifier.cancelUserFileDownload(
                       downloadKeyController.text,
                     ),
                   ),
                   _LabAction(
                     icon: Icons.delete_outline,
-                    label: '删除记录',
+                    label: lab.deleteRecord,
                     onPressed: () => notifier.deleteUserDownloadRecord(
                       downloadKeyController.text,
                     ),
@@ -512,14 +514,15 @@ class _MediaSection extends HookWidget {
   }
 }
 
-class _PresenceSection extends StatelessWidget {
+class _PresenceSection extends ConsumerWidget {
   const _PresenceSection({required this.state, required this.notifier});
 
   final SdkLabSnapshot state;
   final SdkLabNotifier notifier;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lab = ref.watch(flareMessagesProvider).sdkLab;
     return _SectionList(
       children: [
         _ActionGrid(
@@ -527,17 +530,17 @@ class _PresenceSection extends StatelessWidget {
           actions: [
             _LabAction(
               icon: Icons.person_search_outlined,
-              label: '查询当前用户',
+              label: lab.queryCurrentUser,
               onPressed: notifier.getCurrentUserPresence,
             ),
             _LabAction(
               icon: Icons.groups_outlined,
-              label: '批量查询',
+              label: lab.batchQuery,
               onPressed: notifier.batchGetCurrentUserPresence,
             ),
             _LabAction(
               icon: Icons.notifications_active_outlined,
-              label: '订阅 Presence',
+              label: lab.subscribePresence,
               onPressed: notifier.subscribeCurrentUserPresence,
             ),
           ],
@@ -599,14 +602,15 @@ class _CapabilitySection extends StatelessWidget {
   }
 }
 
-class _RawOpsSection extends HookWidget {
+class _RawOpsSection extends HookConsumerWidget {
   const _RawOpsSection({required this.state, required this.notifier});
 
   final SdkLabSnapshot state;
   final SdkLabNotifier notifier;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lab = ref.watch(flareMessagesProvider).sdkLab;
     final selectedId = useState(sdkLabOperationTemplates.first.id);
     final selectedTemplate = sdkLabOperationTemplates.firstWhere(
       (template) => template.id == selectedId.value,
@@ -685,7 +689,7 @@ class _RawOpsSection extends HookWidget {
                           ),
                         ),
                   icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                  label: const Text('执行模板'),
+                  label: Text(lab.runTemplate),
                 ),
               ),
             ],
@@ -696,17 +700,17 @@ class _RawOpsSection extends HookWidget {
           actions: [
             _LabAction(
               icon: Icons.sync_outlined,
-              label: '同步会话摘要',
+              label: lab.syncConversationSummary,
               onPressed: notifier.syncConversationSummaries,
             ),
             _LabAction(
               icon: Icons.bug_report_outlined,
-              label: 'Raw 会话',
+              label: lab.rawConversation,
               onPressed: notifier.listRawConversations,
             ),
             _LabAction(
               icon: Icons.view_list_outlined,
-              label: '分页会话',
+              label: lab.pagedConversation,
               onPressed: notifier.listConversationsPaginated,
             ),
           ],
@@ -945,13 +949,14 @@ class _TimelineTile extends StatelessWidget {
   }
 }
 
-class _FailureLedger extends StatelessWidget {
+class _FailureLedger extends ConsumerWidget {
   const _FailureLedger({required this.failures});
 
   final List<SdkLabFailureEntry> failures;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lab = ref.watch(flareMessagesProvider).sdkLab;
     return _Panel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -962,7 +967,7 @@ class _FailureLedger extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           if (failures.isEmpty)
-            const _EmptyHint(text: '暂无命令失败。')
+            _EmptyHint(text: lab.noCommandFailures)
           else
             for (final failure in failures.take(8))
               Padding(
@@ -975,13 +980,14 @@ class _FailureLedger extends StatelessWidget {
   }
 }
 
-class _MediaDiagnosticsPanel extends StatelessWidget {
+class _MediaDiagnosticsPanel extends ConsumerWidget {
   const _MediaDiagnosticsPanel({required this.state});
 
   final SdkLabSnapshot state;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lab = ref.watch(flareMessagesProvider).sdkLab;
     final mediaEvents = state.events
         .where((event) => event.domain == 'media')
         .take(5)
@@ -1029,10 +1035,7 @@ class _MediaDiagnosticsPanel extends StatelessWidget {
                       .join('\n'),
           ),
           const SizedBox(height: 8),
-          const _EmptyHint(
-            text:
-                '文件上传请先确认已登录且 SDK 已初始化；下载/保存至少提供 source_path、source_url 或 remoteFileId 之一。',
-          ),
+          _EmptyHint(text: lab.uploadHint),
         ],
       ),
     );

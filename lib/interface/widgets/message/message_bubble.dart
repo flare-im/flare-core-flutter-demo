@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/domain/entities/message.dart';
 import 'package:flare_im/domain/value_objects/conversation_type.dart';
 import 'package:flare_im/domain/value_objects/message_content.dart';
@@ -11,8 +12,10 @@ import 'package:flare_im/interface/theme/flare_im_design.dart';
 import 'package:flare_im/interface/widgets/message/content_view.dart';
 import 'package:flare_im/interface/widgets/message/message_long_press_menu.dart';
 import 'package:flare_im/interface/widgets/message/message_style.dart';
+import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 String _imageBubbleFooterClock(DateTime t) =>
     '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
@@ -59,7 +62,7 @@ enum _ReactionRowPlacement {
 }
 
 // 消息气泡：头像、内容区、送达状态、回应条。
-class MessageBubble extends StatelessWidget {
+class MessageBubble extends ConsumerWidget {
   final Message message;
   final bool showAvatar;
   final String currentUserId;
@@ -104,13 +107,14 @@ class MessageBubble extends StatelessWidget {
     this.onMark,
     this.onPinToggle,
     this.onPinForSelf,
-    this.pinToggleLabel = '置顶消息',
+    required this.pinToggleLabel,
     this.onResend,
     this.quotedSenderResolvedName,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final i18n = ref.watch(flareMessagesProvider).chat;
     final isSelf =
         currentUserId.isNotEmpty && message.senderId == currentUserId;
     final isNotification = message.content is NotificationContent;
@@ -140,7 +144,7 @@ class MessageBubble extends StatelessWidget {
     final showReactionsBelowAttachment = !isText && reactionStrip != null;
 
     Widget innerBubble() {
-      if (message.isRecalled) return _recalledBubble(context);
+      if (message.isRecalled) return _recalledBubble(context, i18n);
       return ContentView(
         content: message.content,
         isSelf: isSelf,
@@ -272,6 +276,7 @@ class MessageBubble extends StatelessWidget {
                         onDeleteForEveryone: onDeleteForEveryone,
                         showDeleteForEveryoneOption:
                             showDeleteForEveryoneOption,
+                        i18n: i18n,
                       ),
                     );
                   },
@@ -302,8 +307,10 @@ class MessageBubble extends StatelessWidget {
                                           ScaffoldMessenger.maybeOf(
                                             context,
                                           )?.showSnackBar(
-                                            const SnackBar(
-                                              content: Text('该消息类型暂不支持重发'),
+                                            SnackBar(
+                                              content: Text(
+                                                i18n.resendUnsupported,
+                                              ),
                                             ),
                                           );
                                         }
@@ -343,7 +350,7 @@ class MessageBubble extends StatelessWidget {
                     message.content is! VoteContent &&
                     message.content is! ForwardContent &&
                     !_videoWithCaption(message.content))
-                  _selfStatusLine(context, message),
+                  _selfStatusLine(context, message, i18n),
               ],
             ),
           ),
@@ -353,8 +360,12 @@ class MessageBubble extends StatelessWidget {
   }
 
   /// 己方消息状态：置于气泡下方右对齐；失败态由气泡旁的 [_MessageSendFailureResend] 承担，此处不再重复「发送失败」。
-  Widget _selfStatusLine(BuildContext context, Message message) {
-    final caption = _selfStatusCaption(message.status);
+  Widget _selfStatusLine(
+    BuildContext context,
+    Message message,
+    FlareChatCopy i18n,
+  ) {
+    final caption = _selfStatusCaption(message.status, i18n);
     if (caption == null) return const SizedBox.shrink();
     final light = Theme.of(context).brightness == Brightness.light;
     return Padding(
@@ -373,21 +384,21 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  String? _selfStatusCaption(MessageStatus status) {
+  String? _selfStatusCaption(MessageStatus status, FlareChatCopy i18n) {
     switch (status) {
       case MessageStatus.sending:
-        return '发送中…';
+        return i18n.sending;
       case MessageStatus.failed:
         return null;
       case MessageStatus.read:
-        return '已读';
+        return i18n.read;
       case MessageStatus.sent:
       case MessageStatus.delivered:
         return null;
     }
   }
 
-  Widget _recalledBubble(BuildContext context) {
+  Widget _recalledBubble(BuildContext context, FlareChatCopy i18n) {
     final light = Theme.of(context).brightness == Brightness.light;
     final r = MessageBubbleStyle.bubbleRadius(context);
     return Container(
@@ -418,7 +429,7 @@ class MessageBubble extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           Text(
-            '消息已撤回',
+            i18n.recalled,
             style: TextStyle(
               color: light
                   ? FlareImDesign.messageBubbleReceiverMeta
@@ -608,7 +619,7 @@ class _MessageReactionRow extends StatelessWidget {
 }
 
 /// 红圆感叹号 +「重发」，贴在己方失败气泡旁（可点击重发）。
-class _MessageSendFailureResend extends StatelessWidget {
+class _MessageSendFailureResend extends ConsumerWidget {
   const _MessageSendFailureResend({required this.onTap});
 
   final VoidCallback onTap;
@@ -616,7 +627,8 @@ class _MessageSendFailureResend extends StatelessWidget {
   static const Color _red = FlareThemeTokens.error;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final i18n = ref.watch(flareMessagesProvider).chat;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -647,9 +659,9 @@ class _MessageSendFailureResend extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
-                '重发',
-                style: TextStyle(
+              Text(
+                i18n.resend,
+                style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: _red,

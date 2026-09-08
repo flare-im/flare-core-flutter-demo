@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/domain/value_objects/conversation_type.dart';
 import 'package:flare_im/domain/value_objects/message_content.dart';
 import 'package:flare_im/infrastructure/mappers/storage_preview_format.dart';
@@ -7,8 +8,10 @@ import 'package:flare_im/interface/theme/flare_im_design.dart';
 import 'package:flare_im/interface/widgets/message/message_style.dart';
 import 'package:flare_im/interface/widgets/message/message_type_label.dart';
 import 'package:flare_im/interface/widgets/message/plain_text_emoji_rich.dart';
+import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 内嵌渲染单条快照（由 [ContentView] 注入，避免循环 import）。
 typedef ForwardEmbedBuilder =
@@ -22,7 +25,7 @@ typedef ForwardEmbedBuilder =
 ///
 /// * 仅 1 条：若有附言，附言与内嵌内容共处于同一气泡内（附言在上、胶囊样式）。
 /// * 多条：「聊天记录」摘要卡，最多预览 4 条；点击打开详情底部页（类 PC 列表）。
-class ForwardView extends StatelessWidget {
+class ForwardView extends ConsumerWidget {
   static const int _compactPreviewLimit = 4;
   static const int _previewCharLimit = 56;
   static const double _accentWidth = 4;
@@ -45,9 +48,10 @@ class ForwardView extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final i18n = ref.watch(flareMessagesProvider).chat;
     if (items.isEmpty) {
-      return _emptyPlaceholder(context);
+      return _emptyPlaceholder(context, i18n);
     }
     if (items.length == 1) {
       return _SingleForwardBody(
@@ -67,7 +71,7 @@ class ForwardView extends StatelessWidget {
     );
   }
 
-  Widget _emptyPlaceholder(BuildContext context) {
+  Widget _emptyPlaceholder(BuildContext context, FlareChatCopy i18n) {
     final cap = FlareImDesign.messageBubbleMaxWidthForScreen(
       context,
       isSelf: isSelf,
@@ -84,7 +88,7 @@ class ForwardView extends StatelessWidget {
           isSelf: isSelf,
         ),
         child: Text(
-          '暂无转发内容',
+          i18n.noForwardContent,
           style: TextStyle(fontSize: 13, color: fg.withValues(alpha: 0.75)),
         ),
       ),
@@ -94,7 +98,7 @@ class ForwardView extends StatelessWidget {
 
 // —— 单条 ————————————————————————————————————————————————————————
 
-class _SingleForwardBody extends StatelessWidget {
+class _SingleForwardBody extends ConsumerWidget {
   final String forwardTitle;
   final ForwardSnapshotItem item;
   final bool isSelf;
@@ -108,7 +112,8 @@ class _SingleForwardBody extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final i18n = ref.watch(flareMessagesProvider).chat;
     final cap = FlareImDesign.messageBubbleMaxWidthForScreen(
       context,
       isSelf: isSelf,
@@ -174,7 +179,7 @@ class _SingleForwardBody extends StatelessWidget {
                     ),
                     children: [
                       TextSpan(
-                        text: '附言 ',
+                        text: i18n.remark,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: labelColor,
@@ -209,7 +214,7 @@ class _SingleForwardBody extends StatelessWidget {
 
 // —— 多条卡片 + 详情 ——————————————————————————————————————————————
 
-class _MergeForwardCard extends StatelessWidget {
+class _MergeForwardCard extends ConsumerWidget {
   final String forwardTitle;
   final List<ForwardSnapshotItem> items;
   final bool isSelf;
@@ -227,7 +232,8 @@ class _MergeForwardCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final i18n = ref.watch(flareMessagesProvider).chat;
     final light = Theme.of(context).brightness == Brightness.light;
     final readIconColor = light
         ? FlareImDesign.messageBubbleSenderFill
@@ -276,7 +282,7 @@ class _MergeForwardCard extends StatelessWidget {
             color: Colors.transparent,
             child: InkWell(
               borderRadius: BorderRadius.circular(bubbleR),
-              onTap: () => _openDetail(context),
+              onTap: () => _openDetail(context, i18n),
               child: Ink(
                 decoration: MessageBubbleStyle.bubbleDecoration(
                   context,
@@ -313,7 +319,7 @@ class _MergeForwardCard extends StatelessWidget {
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
-                                      '聊天记录',
+                                      i18n.chatHistory,
                                       style: TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w700,
@@ -337,7 +343,7 @@ class _MergeForwardCard extends StatelessWidget {
                                     0,
                                   ),
                                   child: Text(
-                                    '附言 $remark',
+                                    i18n.remarkPrefix(remark),
                                     style: TextStyle(
                                       fontSize: 12,
                                       height: 1.35,
@@ -374,7 +380,7 @@ class _MergeForwardCard extends StatelessWidget {
                                                 )
                                               : FlareThemeTokens.textTertiary;
                                           final truncated = _truncateLine(
-                                            _itemPreviewLine(previews[i]),
+                                            _itemPreviewLine(previews[i], i18n),
                                             ForwardView._previewCharLimit,
                                           );
                                           return Text.rich(
@@ -383,7 +389,7 @@ class _MergeForwardCard extends StatelessWidget {
                                               children: [
                                                 TextSpan(
                                                   text:
-                                                      '${_senderLabel(previews[i])}：',
+                                                      '${_senderLabel(previews[i], i18n)}：',
                                                   style: const TextStyle(
                                                     fontWeight: FontWeight.w600,
                                                   ),
@@ -406,7 +412,7 @@ class _MergeForwardCard extends StatelessWidget {
                                     if (more > 0) ...[
                                       const SizedBox(height: 6),
                                       Text(
-                                        '还有 $more 条消息…',
+                                        i18n.forwardMore(more),
                                         style: TextStyle(
                                           fontSize: 12,
                                           color: tertiaryOnBubble,
@@ -433,7 +439,7 @@ class _MergeForwardCard extends StatelessWidget {
                                       MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
-                                      '共 $total 条消息',
+                                      i18n.forwardTotalMessages(total),
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: tertiaryOnBubble,
@@ -475,7 +481,7 @@ class _MergeForwardCard extends StatelessWidget {
                                   bottom: 8,
                                 ),
                                 child: Text(
-                                  '点击查看详情',
+                                  i18n.tapForDetails,
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: isSelf
@@ -501,7 +507,7 @@ class _MergeForwardCard extends StatelessWidget {
     );
   }
 
-  void _openDetail(BuildContext context) {
+  void _openDetail(BuildContext context, FlareChatCopy i18n) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -524,7 +530,7 @@ class _MergeForwardCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        '合并转发（${items.length} 条）',
+                        i18n.forwardMergedTitle(items.length),
                         style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
@@ -568,9 +574,9 @@ class _MergeForwardCard extends StatelessWidget {
                           TextSpan(
                             style: base,
                             children: [
-                              const TextSpan(
-                                text: '附言 ',
-                                style: TextStyle(
+                              TextSpan(
+                                text: i18n.remark,
+                                style: const TextStyle(
                                   fontWeight: FontWeight.w600,
                                   color: FlareThemeTokens.textTertiary,
                                   fontSize: 12,
@@ -605,6 +611,7 @@ class _MergeForwardCard extends StatelessWidget {
                     return _ForwardDetailTile(
                       item: it,
                       embedBuilder: embedBuilder,
+                      i18n: i18n,
                     );
                   },
                 ),
@@ -620,16 +627,21 @@ class _MergeForwardCard extends StatelessWidget {
 class _ForwardDetailTile extends StatelessWidget {
   final ForwardSnapshotItem item;
   final ForwardEmbedBuilder embedBuilder;
+  final FlareChatCopy i18n;
 
-  const _ForwardDetailTile({required this.item, required this.embedBuilder});
+  const _ForwardDetailTile({
+    required this.item,
+    required this.embedBuilder,
+    required this.i18n,
+  });
 
   @override
   Widget build(BuildContext context) {
     final hueKey = (item.sourceSenderId ?? '').trim().isNotEmpty
         ? item.sourceSenderId!
-        : _senderLabel(item);
+        : _senderLabel(item, i18n);
     final avatarColor = _avatarColor(hueKey);
-    final initial = _avatarInitial(item);
+    final initial = _avatarInitial(item, i18n);
     final timeStr = _formatItemTime(item.sentAt);
 
     return Column(
@@ -659,7 +671,7 @@ class _ForwardDetailTile extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          _senderLabel(item),
+                          _senderLabel(item, i18n),
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
@@ -689,7 +701,11 @@ class _ForwardDetailTile extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      messageTypeShortLabel(item.messageTypeWire, item.content),
+                      messageTypeShortLabel(
+                        item.messageTypeWire,
+                        item.content,
+                        i18n,
+                      ),
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -704,7 +720,7 @@ class _ForwardDetailTile extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         PlainTextEmojiRich(
-          text: _itemPreviewLine(item),
+          text: _itemPreviewLine(item, i18n),
           style: const TextStyle(
             fontSize: 14,
             height: 1.4,
@@ -740,7 +756,7 @@ class _ForwardDetailTile extends StatelessWidget {
 
 // —— 工具 —————————————————————————————————————————————————————————
 
-String _senderLabel(ForwardSnapshotItem it) {
+String _senderLabel(ForwardSnapshotItem it, FlareChatCopy i18n) {
   final name = (it.senderName ?? '').trim();
   if (name.isNotEmpty) return name;
   final id = (it.sourceSenderId ?? '').trim();
@@ -749,15 +765,15 @@ String _senderLabel(ForwardSnapshotItem it) {
         ? '${id.substring(0, 6)}…${id.substring(id.length - 4)}'
         : id;
   }
-  return '未知发送者';
+  return i18n.unknownSender;
 }
 
-String _itemPreviewLine(ForwardSnapshotItem it) {
+String _itemPreviewLine(ForwardSnapshotItem it, FlareChatCopy i18n) {
   final plain = (it.plainText ?? '').trim();
   if (plain.isNotEmpty) return formatStoragePreview(plain);
   final fromContent = it.content.previewText.trim();
   if (fromContent.isNotEmpty) return fromContent;
-  return '[${messageTypeShortLabel(it.messageTypeWire, it.content)}]';
+  return '[${messageTypeShortLabel(it.messageTypeWire, it.content, i18n)}]';
 }
 
 String _truncateLine(String s, int maxChars) {
@@ -785,8 +801,8 @@ String _formatItemTime(DateTime? t) {
   return '${t.month}/${t.day} ${_pad2(t.hour)}:${_pad2(t.minute)}';
 }
 
-String _avatarInitial(ForwardSnapshotItem it) {
-  final s = _senderLabel(it).trim();
+String _avatarInitial(ForwardSnapshotItem it, FlareChatCopy i18n) {
+  final s = _senderLabel(it, i18n).trim();
   if (s.isEmpty) return '?';
   final i = s.runes.iterator;
   if (!i.moveNext()) return '?';

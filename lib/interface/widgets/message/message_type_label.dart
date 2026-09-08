@@ -1,118 +1,126 @@
 import 'package:flare_im/domain/value_objects/message_content.dart';
+import 'package:flare_im/shared/i18n/flare_messages.dart';
 
-/// 与 `flare.common.v1.MessageType`（proto wire）及解码后 [MessageContent.contentType] 对齐的**简短中文类型名**，
-/// 用于合并转发条目角标、会话摘要等；后续可换为 l10n。
+/// 与 `flare.common.v1.MessageType`（proto wire）及解码后 [MessageContent.contentType] 对齐的**简短类型名**，
+/// 用于合并转发条目角标、会话摘要等；文案走 [FlareChatCopy]（中英双语）。
 ///
 /// [messageTypeWire] 来自 `ForwardItem.messageType` / 消息 `messageType`；为 null 或 0 时回退到 [content]。
-String messageTypeShortLabel(int? messageTypeWire, MessageContent content) {
+String messageTypeShortLabel(
+  int? messageTypeWire,
+  MessageContent content,
+  FlareChatCopy i18n,
+) {
   if (messageTypeWire != null && messageTypeWire != 0) {
     switch (messageTypeWire) {
       case 1:
-        return '文本';
+        return i18n.typeText;
       case 2:
-        return '图片';
+        return i18n.typeImage;
       case 3:
-        return '视频';
+        return i18n.typeVideo;
       case 4:
-        return '语音';
+        return i18n.typeAudio;
       case 5:
-        return '文件';
+        return i18n.typeFile;
       case 6:
-        return '位置';
+        return i18n.typeLocation;
       case 7:
-        return '名片';
+        return i18n.typeCard;
       case 8:
-        return '贴纸';
+        return i18n.typeSticker;
       case 9:
-        return '表情';
+        return i18n.typeEmoji;
       case 11:
-        return '链接';
+        return i18n.typeLink;
       case 12:
-        return '转发';
+        return i18n.typeForward;
       case 13:
-        return '小程序';
+        return i18n.typeMiniProgram;
       case 14:
-        return '话题';
+        return i18n.typeTopic;
       case 15:
-        return '回复';
+        return i18n.typeQuote;
       case 30:
-        return '富文本';
+        return i18n.typeRichText;
       case 32:
-        return '图组';
+        return i18n.typeImageGroup;
       case 60:
-        return '系统';
+        return i18n.typeSystem;
       case 61:
-        return '通知';
+        return i18n.typeNotification;
       case 80:
-        return '投票';
+        return i18n.typeVote;
       case 81:
-        return '任务';
+        return i18n.typeTask;
       case 82:
-        return '日程';
+        return i18n.typeSchedule;
       case 83:
-        return '公告';
+        return i18n.typeAnnouncement;
       case 100:
-        return '自定义';
+        return i18n.typeCustom;
       default:
-        return '类型 $messageTypeWire';
+        return i18n.typeUnknown(messageTypeWire);
     }
   }
-  return messageTypeShortLabelFromContentType(content.contentType);
+  return messageTypeShortLabelFromContentType(content.contentType, i18n);
 }
 
 /// 仅根据 `contentType` 解析简短标签；无 wire 或与 proto 不一致时使用。
-String messageTypeShortLabelFromContentType(String contentType) {
+String messageTypeShortLabelFromContentType(
+  String contentType,
+  FlareChatCopy i18n,
+) {
   switch (contentType) {
     case 'text':
-      return '文本';
+      return i18n.typeText;
     case 'image':
-      return '图片';
+      return i18n.typeImage;
     case 'video':
-      return '视频';
+      return i18n.typeVideo;
     case 'audio':
-      return '语音';
+      return i18n.typeAudio;
     case 'file':
-      return '文件';
+      return i18n.typeFile;
     case 'location':
-      return '位置';
+      return i18n.typeLocation;
     case 'card':
-      return '名片';
+      return i18n.typeCard;
     case 'sticker':
-      return '贴纸';
+      return i18n.typeSticker;
     case 'emoji':
-      return '表情';
+      return i18n.typeEmoji;
     case 'link_card':
-      return '链接';
+      return i18n.typeLink;
     case 'forward':
-      return '转发';
+      return i18n.typeForward;
     case 'mini_program':
-      return '小程序';
+      return i18n.typeMiniProgram;
     case 'quote':
-      return '回复';
+      return i18n.typeQuote;
     case 'rich_text':
     case 'rich_doc':
-      return '富文本';
+      return i18n.typeRichText;
     case 'vote':
-      return '投票';
+      return i18n.typeVote;
     case 'task':
-      return '任务';
+      return i18n.typeTask;
     case 'schedule':
-      return '日程';
+      return i18n.typeSchedule;
     case 'announcement':
-      return '公告';
+      return i18n.typeAnnouncement;
     case 'notification':
-      return '通知';
+      return i18n.typeNotification;
     case 'image_group':
-      return '图组';
+      return i18n.typeImageGroup;
     case 'placeholder':
-      return '占位';
+      return i18n.typePlaceholder;
     case 'system':
-      return '系统';
+      return i18n.typeSystem;
     case 'thread':
-      return '话题';
+      return i18n.typeTopic;
     case 'custom':
-      return '自定义';
+      return i18n.typeCustom;
     default:
-      return '消息';
+      return i18n.typeMessage;
   }
 }
