@@ -23,6 +23,7 @@ import 'package:flare_im_ui/flare_im_ui.dart'
         FlareConversationSliverList,
         FlareEmptyState,
         FlareFormField,
+        FlareIconButton,
         FlareInput,
         FlarePresenceDot,
         FlareSegmentedControl;
@@ -137,9 +138,13 @@ class _ConversationListScreenState
                       ],
                     ),
                   ),
-                  _CircleIconButton(
+                  FlareIconButton(
+                    icon:
+                        _searchOpen ? Icons.close_rounded : Icons.search_rounded,
+                    semanticLabel: i18n.search.title,
                     backgroundColor: FlareImDesign.listHeaderIconCircleBg,
-                    size: 44,
+                    tintColor: FlareImDesign.mutedForeground,
+                    customSize: 44,
                     onPressed: () {
                       setState(() => _searchOpen = !_searchOpen);
                       if (!_searchOpen) {
@@ -147,29 +152,24 @@ class _ConversationListScreenState
                         setState(() => _searchQuery = '');
                       }
                     },
-                    child: Icon(
-                      _searchOpen ? Icons.close_rounded : Icons.search_rounded,
-                      size: 22,
-                      color: FlareImDesign.mutedForeground,
-                    ),
                   ),
                   const SizedBox(width: 10),
-                  _CircleIconButton(
+                  FlareIconButton(
+                    icon: Icons.add,
+                    semanticLabel: i18n.conversation.startChat,
                     backgroundColor: FlareImDesign.brandPurple,
-                    size: 48,
+                    tintColor: Colors.white,
+                    customSize: 48,
                     onPressed: () => _showStartChatDialog(context, ref),
-                    child: const Icon(Icons.add, size: 26, color: Colors.white),
                   ),
                   const SizedBox(width: 10),
-                  _CircleIconButton(
+                  FlareIconButton(
+                    icon: Icons.more_horiz_rounded,
+                    semanticLabel: i18n.composer.more,
                     backgroundColor: FlareImDesign.listHeaderIconCircleBg,
-                    size: 44,
+                    tintColor: FlareImDesign.mutedForeground,
+                    customSize: 44,
                     onPressed: () => _showMoreSheet(currentUser),
-                    child: const Icon(
-                      Icons.more_horiz_rounded,
-                      size: 22,
-                      color: FlareImDesign.mutedForeground,
-                    ),
                   ),
                 ],
               ),
@@ -647,37 +647,6 @@ class _StartChatDialogState extends ConsumerState<_StartChatDialog> {
           child: Text(i18n.t('conversation.open')),
         ),
       ],
-    );
-  }
-}
-
-class _CircleIconButton extends StatelessWidget {
-  const _CircleIconButton({
-    required this.backgroundColor,
-    required this.size,
-    required this.child,
-    this.onPressed,
-  });
-
-  final Color backgroundColor;
-  final double size;
-  final Widget child;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: backgroundColor,
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onPressed,
-        child: SizedBox(
-          width: size,
-          height: size,
-          child: Center(child: child),
-        ),
-      ),
     );
   }
 }

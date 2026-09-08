@@ -33,6 +33,8 @@ import 'package:flare_im/interface/widgets/message/chat_message_list_item.dart';
 import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/layout/workbench_layout.dart';
 import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
+import 'package:flare_im_ui/flare_im_ui.dart'
+    show FlareEmptyState, FlareMessageSliverList;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -2029,79 +2031,41 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
                 color: chatCanvas,
                 child: RefreshIndicator(
                   onRefresh: _onRefresh,
-                  child: keysSignal.orderedKeys.isEmpty
-                      ? CustomScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          slivers: [
-                            SliverFillRemaining(
-                              hasScrollBody: false,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const SizedBox(height: 120),
-                                  Icon(
-                                    Icons.chat_bubble_outline,
-                                    size: 64,
-                                    color: FlareImDesign.mutedForeground
-                                        .withValues(alpha: 0.45),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    chat.noMessages,
-                                    style: const TextStyle(
-                                      color: FlareImDesign.mutedForeground,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    chat.pullToSync,
-                                    style: TextStyle(
-                                      color: FlareImDesign.mutedForeground
-                                          .withValues(alpha: 0.85),
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        )
-                      : CustomScrollView(
-                          controller: _scrollController,
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          slivers: [
-                            SliverPadding(
-                              padding: const EdgeInsets.fromLTRB(
-                                FlareImDesign.messageBubbleListHorizontalPad,
-                                8,
-                                FlareImDesign.messageBubbleListHorizontalPad,
-                                20,
-                              ),
-                              sliver: SliverList(
-                                delegate: SliverChildBuilderDelegate((
-                                  context,
-                                  index,
-                                ) {
-                                  final key = keysSignal.orderedKeys[index];
-                                  return ChatMessageListItem(
-                                    key: ValueKey<String>(key),
-                                    conversationId: _cid,
-                                    messageKey: key,
-                                    currentUserId: me,
-                                    onEditOwnText: _editOwnMessage,
-                                    onStartReply: _startReplyToMessageKey,
-                                    multiSelectMode: _multiSelectMode,
-                                    multiSelectSelected: _multiSelectKeys
-                                        .contains(key),
-                                    onToggleMultiSelect: () =>
-                                        _toggleMultiSelectKey(key),
-                                    onStartMultiSelect: _startMultiSelectWith,
-                                  );
-                                }, childCount: keysSignal.orderedKeys.length),
-                              ),
-                            ),
-                          ],
+                  // 容器收敛到 kit host-rows sliver 变体：kit 统一空态/加载 + 内边距
+                  // sliver 外壳，host 仍持 CustomScrollView/滚动控制器（尾随+翻旧）
+                  // 与每行 ChatMessageListItem（多选/引用/编辑等附能）。
+                  child: CustomScrollView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      FlareMessageSliverList(
+                        keys: keysSignal.orderedKeys,
+                        padding: const EdgeInsets.fromLTRB(
+                          FlareImDesign.messageBubbleListHorizontalPad,
+                          8,
+                          FlareImDesign.messageBubbleListHorizontalPad,
+                          20,
                         ),
+                        emptyPlaceholder: FlareEmptyState(
+                          icon: Icons.chat_bubble_outline,
+                          title: chat.noMessages,
+                          description: chat.pullToSync,
+                        ),
+                        rowBuilder: (context, key) => ChatMessageListItem(
+                          key: ValueKey<String>(key),
+                          conversationId: _cid,
+                          messageKey: key,
+                          currentUserId: me,
+                          onEditOwnText: _editOwnMessage,
+                          onStartReply: _startReplyToMessageKey,
+                          multiSelectMode: _multiSelectMode,
+                          multiSelectSelected: _multiSelectKeys.contains(key),
+                          onToggleMultiSelect: () => _toggleMultiSelectKey(key),
+                          onStartMultiSelect: _startMultiSelectWith,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

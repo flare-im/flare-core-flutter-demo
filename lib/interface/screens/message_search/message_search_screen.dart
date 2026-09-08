@@ -9,6 +9,7 @@ import 'package:flare_im/interface/theme/flare_im_design.dart';
 import 'package:flare_im/interface/widgets/message/plain_text_emoji_rich.dart';
 import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/layout/workbench_layout.dart';
+import 'package:flare_im_ui/flare_im_ui.dart' show FlareInput;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -141,21 +142,12 @@ class _MessageSearchScreenState extends ConsumerState<MessageSearchScreen> {
             child: Row(
               children: [
                 Expanded(
-                  child: TextField(
+                  child: FlareInput(
                     controller: _keywordController,
                     autofocus: true,
-                    textInputAction: TextInputAction.search,
+                    placeholder: search.keywordHint,
+                    prefix: const Icon(Icons.search_rounded, size: 22),
                     onSubmitted: (_) => unawaited(_runSearch()),
-                    decoration: InputDecoration(
-                      hintText: search.keywordHint,
-                      prefixIcon: const Icon(Icons.search_rounded, size: 22),
-                      filled: true,
-                      fillColor: FlareImDesign.listHeaderIconCircleBg,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
