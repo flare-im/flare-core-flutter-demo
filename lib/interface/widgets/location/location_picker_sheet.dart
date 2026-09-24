@@ -1,7 +1,8 @@
 import 'dart:async';
 
 import 'package:flare_im/infrastructure/location/device_location_service.dart';
-import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
+import 'package:flare_im_ui/flare_im_ui.dart' as kit_sizes show FlareSizes;
+import 'package:flare_im_ui/flare_im_ui.dart' as kit_theme show FlareColors;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -194,7 +195,7 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
     return Padding(
       padding: EdgeInsets.only(left: 10, right: 10, bottom: bottom + 10),
       child: Material(
-        color: FlareThemeTokens.bgPrimary,
+        color: kit_theme.FlareColors.of(context).bgPrimary,
         borderRadius: BorderRadius.circular(22),
         clipBehavior: Clip.antiAlias,
         child: ConstrainedBox(
@@ -232,35 +233,37 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: FlareThemeTokens.info.withValues(alpha: 0.12),
+              color: kit_theme.FlareColors.of(
+                context,
+              ).info.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(13),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.explore_outlined,
-              color: FlareThemeTokens.info,
+              color: kit_theme.FlareColors.of(context).info,
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   '选择位置',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: kit_sizes.FlareSizes.fontSize4xl,
                     height: 1.2,
                     fontWeight: FontWeight.w800,
-                    color: FlareThemeTokens.textPrimary,
+                    color: kit_theme.FlareColors.of(context).textPrimary,
                   ),
                 ),
-                SizedBox(height: 3),
+                const SizedBox(height: 3),
                 Text(
                   '搜索地点，或在地图上点选要发送的位置',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: kit_sizes.FlareSizes.fontSizeSm,
                     height: 1.25,
-                    color: FlareThemeTokens.textSecondary,
+                    color: kit_theme.FlareColors.of(context).textSecondary,
                   ),
                 ),
               ],
@@ -290,18 +293,18 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                 hintText: '搜索地点、小区、公司或地址',
                 prefixIcon: const Icon(Icons.search_rounded),
                 filled: true,
-                fillColor: FlareThemeTokens.bgSecondary,
+                fillColor: kit_theme.FlareColors.of(context).bgSecondary,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(
-                    color: FlareThemeTokens.borderSecondary,
+                  borderSide: BorderSide(
+                    color: kit_theme.FlareColors.of(context).borderSecondary,
                   ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(
-                    color: FlareThemeTokens.borderSecondary,
+                  borderSide: BorderSide(
+                    color: kit_theme.FlareColors.of(context).borderSecondary,
                   ),
                 ),
               ),
@@ -313,7 +316,7 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
             child: FilledButton(
               onPressed: _searching ? null : () => unawaited(_search()),
               style: FilledButton.styleFrom(
-                backgroundColor: FlareThemeTokens.primary,
+                backgroundColor: kit_theme.FlareColors.of(context).primary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -340,15 +343,17 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: BoxDecoration(
-          color: FlareThemeTokens.warning.withValues(alpha: 0.12),
+          color: kit_theme.FlareColors.of(
+            context,
+          ).warning.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(
           text,
-          style: const TextStyle(
-            fontSize: 12,
+          style: TextStyle(
+            fontSize: kit_sizes.FlareSizes.fontSizeSm,
             height: 1.35,
-            color: FlareThemeTokens.textSecondary,
+            color: kit_theme.FlareColors.of(context).textSecondary,
           ),
         ),
       ),
@@ -386,10 +391,10 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                       width: 46,
                       height: 46,
                       alignment: Alignment.topCenter,
-                      child: const Icon(
+                      child: Icon(
                         Icons.location_on_rounded,
                         size: 42,
-                        color: FlareThemeTokens.error,
+                        color: kit_theme.FlareColors.of(context).error,
                       ),
                     ),
                   ],
@@ -429,9 +434,9 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
           return ListTile(
             dense: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-            leading: const Icon(
+            leading: Icon(
               Icons.place_outlined,
-              color: FlareThemeTokens.info,
+              color: kit_theme.FlareColors.of(context).info,
             ),
             title: Text(
               result.title,
@@ -478,9 +483,9 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                   '${_selectedPoint.latitude.toStringAsFixed(6)}, ${_selectedPoint.longitude.toStringAsFixed(6)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: FlareThemeTokens.textSecondary,
+                  style: TextStyle(
+                    fontSize: kit_sizes.FlareSizes.fontSizeSm,
+                    color: kit_theme.FlareColors.of(context).textSecondary,
                   ),
                 ),
               ),
@@ -488,7 +493,7 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
               FilledButton.icon(
                 onPressed: _confirm,
                 style: FilledButton.styleFrom(
-                  backgroundColor: FlareThemeTokens.primary,
+                  backgroundColor: kit_theme.FlareColors.of(context).primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -511,23 +516,31 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
   InputDecoration _inputDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
-      prefixIcon: Icon(icon, size: 19, color: FlareThemeTokens.textSecondary),
+      prefixIcon: Icon(
+        icon,
+        size: 19,
+        color: kit_theme.FlareColors.of(context).textSecondary,
+      ),
       filled: true,
-      fillColor: FlareThemeTokens.bgSecondary,
+      fillColor: kit_theme.FlareColors.of(context).bgSecondary,
       floatingLabelBehavior: FloatingLabelBehavior.always,
-      labelStyle: const TextStyle(
-        fontSize: 12,
+      labelStyle: TextStyle(
+        fontSize: kit_sizes.FlareSizes.fontSizeSm,
         fontWeight: FontWeight.w600,
-        color: FlareThemeTokens.textSecondary,
+        color: kit_theme.FlareColors.of(context).textSecondary,
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: FlareThemeTokens.borderSecondary),
+        borderSide: BorderSide(
+          color: kit_theme.FlareColors.of(context).borderSecondary,
+        ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: FlareThemeTokens.borderSecondary),
+        borderSide: BorderSide(
+          color: kit_theme.FlareColors.of(context).borderSecondary,
+        ),
       ),
     );
   }
@@ -553,7 +566,7 @@ class _MapFab extends StatelessWidget {
       child: IconButton(
         tooltip: tooltip,
         onPressed: onPressed,
-        icon: Icon(icon, color: FlareThemeTokens.textPrimary),
+        icon: Icon(icon, color: kit_theme.FlareColors.of(context).textPrimary),
       ),
     );
   }

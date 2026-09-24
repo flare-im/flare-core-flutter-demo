@@ -13,9 +13,9 @@ import 'package:flutter_test/flutter_test.dart';
 /// 客户端不需要持有签名密钥（把密钥放进客户端等于让任何拿到安装包的人伪造身份）。
 ///
 /// 默认跳过。要跑就给两个环境变量——**别把 token 写进仓库**：
-///   FLARE_E2E_WS_URL=wss://<host>/ws \
-///   FLARE_E2E_TOKEN="$(ssh <server> mint_token.py <user>)" \
-///   FLARE_E2E_USER=<user> flutter test test/sdk_remote_token_flow_test.dart
+///   `FLARE_E2E_WS_URL=wss://host/ws` \
+///   `FLARE_E2E_TOKEN="$(ssh server mint_token.py user)"` \
+///   `FLARE_E2E_USER=user flutter test test/sdk_remote_token_flow_test.dart`
 void main() {
   test('用服务端签发的 token 登录远端网关并拉起会话', () async {
     final wsUrl = Platform.environment['FLARE_E2E_WS_URL'];

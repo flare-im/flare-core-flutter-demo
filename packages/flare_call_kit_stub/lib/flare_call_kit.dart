@@ -121,6 +121,8 @@ final class InMemoryCallSessionStore {
 final class FlutterWebRtcMediaBridge {
   const FlutterWebRtcMediaBridge();
 
+  static const bool isAvailable = false;
+
   Future<void> dispose() async {}
 }
 
@@ -131,42 +133,18 @@ final class FlareCallKitController extends ChangeNotifier {
     required InMemoryCallSessionStore store,
     FlutterWebRtcMediaBridge? mediaBridge,
     String? currentUserId,
-  }) : _backend = backend,
-       _signalSender = signalSender,
-       _store = store,
-       _mediaBridge = mediaBridge,
-       _currentUserId = currentUserId;
+  }) : _store = store,
+       _mediaBridge = mediaBridge;
 
-  final SdkCallBackendAdapter _backend;
-  final SdkCallSignalSender _signalSender;
   final InMemoryCallSessionStore _store;
   final FlutterWebRtcMediaBridge? _mediaBridge;
-  String? _currentUserId;
 
   InMemoryCallSessionStore get store => _store;
 
-  void setCurrentUserId(String? userId) {
-    final trimmed = userId?.trim();
-    _currentUserId = trimmed == null || trimmed.isEmpty ? null : trimmed;
-  }
+  void setCurrentUserId(String? userId) {}
 
   Future<String> start(StartCallInput input) async {
-    final callId = 'stub-${DateTime.now().microsecondsSinceEpoch}';
-    try {
-      await _backend.dispatchProbe(input);
-    } on Object {
-      await _signalSender.send({
-        'kind': 'invite',
-        'conversationId': input.conversationId,
-        'callId': callId,
-        'fromUserId': _currentUserId ?? '',
-        if (input.peerUserId != null && input.peerUserId!.trim().isNotEmpty)
-          'toUserId': input.peerUserId!.trim(),
-        'video': input.withVideo,
-      });
-    }
-    notifyListeners();
-    return callId;
+    throw UnsupportedError('RTC media bridge is not installed');
   }
 
   Future<void> handleSignal(NormalizedCallSignalPayload payload) async {

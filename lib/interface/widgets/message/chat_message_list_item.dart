@@ -8,7 +8,7 @@ import 'package:flare_im/domain/entities/message.dart';
 import 'package:flare_im/domain/value_objects/message_content.dart';
 import 'package:flare_im/interface/widgets/message/message.dart';
 import 'package:flare_im/shared/i18n/flare_messages.dart';
-import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
+import 'package:flare_im_ui/flare_im_ui.dart' show FlareDatePill, FlareSizes;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -116,7 +116,7 @@ class ChatMessageListItem extends ConsumerWidget {
           )
         : null;
 
-    final bubble = MessageBubble(
+    final bubble = SdkMessageBubbleAdapter(
       message: message,
       showAvatar: vm.showAvatar,
       currentUserId: me,
@@ -208,9 +208,9 @@ class ChatMessageListItem extends ConsumerWidget {
                 return;
               }
               if (message.serverId.trim().isEmpty) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text(i18n.recallWhileSending)));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(i18n.recallWhileSending)),
+                );
                 return;
               }
               if (!message.canRecall) {
@@ -295,31 +295,12 @@ class _ChatTimeDivider extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final i18n = ref.watch(flareMessagesProvider).chat;
-    final light = Theme.of(context).brightness == Brightness.light;
     return Padding(
-      padding: const EdgeInsets.only(top: 12, bottom: 8),
-      child: Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: light
-                ? const Color(0xFFEDEEF0)
-                : FlareThemeTokens.bgTertiary,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            _formatFeishuStyleDividerTime(time, i18n),
-            style: TextStyle(
-              fontSize: 12,
-              height: 1.2,
-              color: FlareThemeTokens.textSecondary.withValues(
-                alpha: light ? 0.88 : 0.9,
-              ),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
+      padding: const EdgeInsets.only(
+        top: FlareSizes.spacingMd,
+        bottom: FlareSizes.spacingSm,
       ),
+      child: FlareDatePill(label: _formatFeishuStyleDividerTime(time, i18n)),
     );
   }
 

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:extended_text_field/extended_text_field.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flare_call_kit/flare_call_kit.dart';
 import 'package:flare_im/application/outbound/im_outbound_facade.dart';
 import 'package:flare_im/application/providers/active_chat_stack_provider.dart';
@@ -32,13 +31,14 @@ import 'package:flare_im/interface/widgets/location/location_picker_sheet.dart';
 import 'package:flare_im/interface/widgets/message/chat_message_list_item.dart';
 import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/layout/workbench_layout.dart';
-import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flare_im_ui/flare_im_ui.dart'
     show FlareEmptyState, FlareMessageSliverList;
+import 'package:flare_im_ui/flare_im_ui.dart' as kit_sizes show FlareSizes;
+import 'package:flare_im_ui/flare_im_ui.dart' as kit_theme show FlareColors;
+import 'package:flare_im_ui/flare_im_ui.dart' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
@@ -811,29 +811,35 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
         controller: controller,
         keyboardType: keyboardType,
         onChanged: onChanged,
-        style: const TextStyle(
-          fontSize: 15,
+        style: TextStyle(
+          fontSize: kit_sizes.FlareSizes.fontSizeXl,
           height: 1.25,
           fontWeight: FontWeight.w500,
-          color: FlareThemeTokens.textPrimary,
+          color: kit_theme.FlareColors.of(context).textPrimary,
         ),
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
           prefixIcon: icon == null
               ? null
-              : Icon(icon, size: 19, color: FlareThemeTokens.textSecondary),
+              : Icon(
+                  icon,
+                  size: 19,
+                  color: kit_theme.FlareColors.of(context).textSecondary,
+                ),
           filled: true,
-          fillColor: FlareThemeTokens.bgSecondary,
+          fillColor: kit_theme.FlareColors.of(context).bgSecondary,
           floatingLabelBehavior: FloatingLabelBehavior.always,
-          labelStyle: const TextStyle(
-            fontSize: 12,
+          labelStyle: TextStyle(
+            fontSize: kit_sizes.FlareSizes.fontSizeSm,
             fontWeight: FontWeight.w600,
-            color: FlareThemeTokens.textSecondary,
+            color: kit_theme.FlareColors.of(context).textSecondary,
           ),
           hintStyle: TextStyle(
-            fontSize: 14,
-            color: FlareThemeTokens.textSecondary.withValues(alpha: 0.78),
+            fontSize: kit_sizes.FlareSizes.fontSizeLg,
+            color: kit_theme.FlareColors.of(
+              context,
+            ).textSecondary.withValues(alpha: 0.78),
           ),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 14,
@@ -841,20 +847,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
           ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(
-              color: FlareThemeTokens.borderSecondary,
+            borderSide: BorderSide(
+              color: kit_theme.FlareColors.of(context).borderSecondary,
             ),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(
-              color: FlareThemeTokens.borderSecondary,
+            borderSide: BorderSide(
+              color: kit_theme.FlareColors.of(context).borderSecondary,
             ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(
-              color: FlareThemeTokens.primary,
+            borderSide: BorderSide(
+              color: kit_theme.FlareColors.of(context).primary,
               width: 1.4,
             ),
           ),
@@ -889,7 +895,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
                 color: Colors.transparent,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: FlareThemeTokens.bgPrimary,
+                    color: kit_theme.FlareColors.of(context).bgPrimary,
                     borderRadius: BorderRadius.circular(28),
                     boxShadow: [
                       BoxShadow(
@@ -926,11 +932,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
                                       title,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 21,
+                                      style: TextStyle(
+                                        fontSize:
+                                            kit_sizes.FlareSizes.fontSize4xl,
                                         height: 1.2,
                                         fontWeight: FontWeight.w800,
-                                        color: FlareThemeTokens.textPrimary,
+                                        color: kit_theme.FlareColors.of(
+                                          context,
+                                        ).textPrimary,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
@@ -938,10 +947,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
                                       subtitle,
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 12,
+                                      style: TextStyle(
+                                        fontSize:
+                                            kit_sizes.FlareSizes.fontSizeSm,
                                         height: 1.25,
-                                        color: FlareThemeTokens.textSecondary,
+                                        color: kit_theme.FlareColors.of(
+                                          context,
+                                        ).textSecondary,
                                       ),
                                     ),
                                   ],
@@ -957,7 +969,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
                               Expanded(
                                 child: TextButton(
                                   style: TextButton.styleFrom(
-                                    foregroundColor: FlareThemeTokens.primary,
+                                    foregroundColor: kit_theme.FlareColors.of(
+                                      context,
+                                    ).primary,
                                     padding: const EdgeInsets.symmetric(
                                       vertical: 13,
                                     ),
@@ -978,7 +992,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
                               Expanded(
                                 child: FilledButton(
                                   style: FilledButton.styleFrom(
-                                    backgroundColor: FlareThemeTokens.primary,
+                                    backgroundColor: kit_theme.FlareColors.of(
+                                      context,
+                                    ).primary,
                                     foregroundColor: Colors.white,
                                     padding: const EdgeInsets.symmetric(
                                       vertical: 13,
@@ -1041,7 +1057,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
         title: _c.sendCard,
         subtitle: _c.sendCardDesc,
         icon: Icons.badge_rounded,
-        accent: FlareThemeTokens.primaryActive,
+        accent: kit_theme.FlareColors.of(context).primaryActive,
         fields: [
           _businessTextField(
             id,
@@ -1094,7 +1110,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
         title: _c.sendTask,
         subtitle: _c.taskCardDesc,
         icon: Icons.task_alt_rounded,
-        accent: FlareThemeTokens.robot,
+        accent: kit_theme.FlareColors.of(context).robot,
         fields: [
           _businessTextField(
             title,
@@ -1142,7 +1158,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
         title: _c.sendSchedule,
         subtitle: _c.scheduleCardDesc,
         icon: Icons.calendar_month_rounded,
-        accent: FlareThemeTokens.important,
+        accent: kit_theme.FlareColors.of(context).important,
         fields: [
           _businessTextField(
             title,
@@ -1192,30 +1208,53 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
     }
   }
 
+  /// The first picked path, or null when the picker was dismissed; other
+  /// contract errors surface as a snackbar.
+  String? _pickedPath(ui.FlarePlatformResult<List<ui.FlarePickedFile>> result) {
+    if (result.isOk) {
+      final path = result.valueOrNull?.firstOrNull?.path?.trim() ?? '';
+      return path.isEmpty ? null : path;
+    }
+    final error = result.errorOrNull!;
+    if (error.code == ui.FlarePlatformErrorCode.cancelled) return null;
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_c.sendFailed(error.message ?? error.code.name)),
+        ),
+      );
+    }
+    return null;
+  }
+
   Future<void> _pickAndSendImage() async {
-    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (picked == null) return;
-    await ref.read(messageProvider(_cid).notifier).sendImageByPath(picked.path);
+    final path = _pickedPath(await ui.FlarePlatform.of(context).pickImages());
+    if (path == null) return;
+    await ref.read(messageProvider(_cid).notifier).sendImageByPath(path);
   }
 
   Future<void> _pickAndSendVideo() async {
-    final picked = await ImagePicker().pickVideo(source: ImageSource.gallery);
-    if (picked == null) return;
-    await ref.read(messageProvider(_cid).notifier).sendVideoByPath(picked.path);
+    final path = _pickedPath(
+      await ui.FlarePlatform.of(
+        context,
+      ).pickFiles(const ui.FlarePickFilesOptions(accept: ['video/*'])),
+    );
+    if (path == null) return;
+    await ref.read(messageProvider(_cid).notifier).sendVideoByPath(path);
   }
 
-  Future<void> _pickAndSendFile({FileType type = FileType.any}) async {
-    final result = await FilePicker.platform.pickFiles(
-      type: type,
-      allowMultiple: false,
-      withData: false,
+  Future<void> _pickAndSendFile({List<String> accept = const []}) async {
+    final path = _pickedPath(
+      await ui.FlarePlatform.of(
+        context,
+      ).pickFiles(ui.FlarePickFilesOptions(accept: accept)),
     );
-    final path = result?.files.firstOrNull?.path?.trim() ?? '';
-    if (path.isEmpty) return;
+    if (path == null) return;
     await ref.read(messageProvider(_cid).notifier).sendFileByPath(path);
   }
 
   Future<void> _pickAndSendAudio() async {
+    final platform = ui.FlarePlatform.of(context);
     final mode = await showModalBottomSheet<String>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -1242,13 +1281,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
       await _recordAndSendAudio();
       return;
     }
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.audio,
-      allowMultiple: false,
-      withData: false,
+    final path = _pickedPath(
+      await platform.pickFiles(
+        const ui.FlarePickFilesOptions(accept: ['audio/*']),
+      ),
     );
-    final path = result?.files.firstOrNull?.path?.trim() ?? '';
-    if (path.isEmpty) return;
+    if (path == null) return;
     await ref.read(messageProvider(_cid).notifier).sendAudioByPath(path);
   }
 
@@ -1412,7 +1450,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
       final msg = (e.message ?? '').trim();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(msg.isEmpty ? _c.recordFailedRetry : _c.recordFailed(msg)),
+          content: Text(
+            msg.isEmpty ? _c.recordFailedRetry : _c.recordFailed(msg),
+          ),
         ),
       );
     } finally {
@@ -1430,15 +1470,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
           await _pickAndSendVideo();
           break;
         case ComposerPickMediaKind.imageOrVideo:
-          final result = await FilePicker.platform.pickFiles(
-            type: FileType.media,
-            allowMultiple: false,
-            withData: false,
+          final path = _pickedPath(
+            await ui.FlarePlatform.of(context).pickFiles(
+              const ui.FlarePickFilesOptions(accept: ['image/*', 'video/*']),
+            ),
           );
-          final file = result?.files.firstOrNull;
-          final path = file?.path?.trim() ?? '';
-          if (path.isEmpty) return;
-          final ext = (file?.extension ?? '').toLowerCase();
+          if (path == null) return;
+          final ext = path.contains('.')
+              ? path.split('.').last.toLowerCase()
+              : '';
           final isVideo = const {
             'mp4',
             'mov',
@@ -1597,7 +1637,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
                       decoration: InputDecoration(
                         labelText: label,
                         filled: true,
-                        fillColor: FlareThemeTokens.bgSecondary,
+                        fillColor: kit_theme.FlareColors.of(
+                          context,
+                        ).bgSecondary,
                         border: const OutlineInputBorder(),
                       ),
                     ),
@@ -1702,7 +1744,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
             _cid,
             messageIds: ids,
             merge: merge,
-            title: merge ? _c.forwardMergedCount(ids.length) : _c.forwardMessage,
+            title: merge
+                ? _c.forwardMergedCount(ids.length)
+                : _c.forwardMessage,
           );
       _exitMultiSelect();
       if (!mounted) return;
@@ -1809,210 +1853,162 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
     final canPop = !widget.embedInWorkbench && Navigator.canPop(context);
     final chatCanvas = Theme.of(context).brightness == Brightness.light
         ? FlareImDesign.chatMessageListCanvas
-        : FlareThemeTokens.chatCanvas;
+        : kit_theme.FlareColors.of(context).bgSecondary;
 
     return Scaffold(
       backgroundColor: chatCanvas,
-      appBar: AppBar(
-        centerTitle: true,
-        backgroundColor: FlareThemeTokens.bgPrimary,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        foregroundColor: FlareThemeTokens.textPrimary,
-        shape: const Border(
-          bottom: BorderSide(color: FlareThemeTokens.borderSecondary, width: 1),
+      appBar: ui.FlareConversationHeader(
+        identity: ui.FlareConversationIdentity(
+          id: _cid,
+          title: _multiSelectMode
+              ? i18n.chat.multiSelectCountOf(_multiSelectKeys.length)
+              : title,
+          kind: peerUserId.isEmpty
+              ? ui.FlareConversationHeaderKind.group
+              : ui.FlareConversationHeaderKind.direct,
+          presence: peerOnline == null
+              ? null
+              : peerOnline
+              ? ui.FlarePresence.online
+              : ui.FlarePresence.offline,
+          subtitle: peerOnline == null
+              ? null
+              : peerOnline
+              ? chat.online
+              : chat.offline,
+          typingText: typingText,
         ),
-        leading: _multiSelectMode
-            ? IconButton(
-                icon: const Icon(Icons.close),
-                tooltip: chat.exitMultiSelect,
-                onPressed: () {
-                  _dismissComposerMoreGrid();
-                  _exitMultiSelect();
-                },
-              )
-            : canPop
-            ? IconButton(
-                icon: const BackButtonIcon(),
-                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                onPressed: () {
-                  _dismissComposerMoreGrid();
-                  _flushComposerDraftNow();
-                  Navigator.of(context).maybePop();
-                },
-              )
-            : null,
-        title: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: _dismissComposerMoreGrid,
-          child: _multiSelectMode
-              ? Text(
-                  i18n.chat.multiSelectCountOf(_multiSelectKeys.length),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                    color: FlareThemeTokens.textPrimary,
-                  ),
-                )
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w600,
-                              color: FlareThemeTokens.textPrimary,
-                            ),
-                          ),
-                        ),
-                        if (peerOnline != null) ...[
-                          const SizedBox(width: 6),
-                          _PresencePill(online: peerOnline),
-                        ],
-                      ],
-                    ),
-                    if (typingText.isNotEmpty)
-                      Text(
-                        typingText,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: FlareThemeTokens.textSecondary,
-                        ),
-                      ),
-                  ],
-                ),
+        configuration: const ui.FlareConversationHeaderConfiguration(
+          replaceDefaults: true,
         ),
+        showBack: _multiSelectMode || canPop,
+        onBack: () {
+          _dismissComposerMoreGrid();
+          if (_multiSelectMode) {
+            _exitMultiSelect();
+          } else {
+            _flushComposerDraftNow();
+            Navigator.of(context).maybePop();
+          }
+        },
         actions: _multiSelectMode
             ? [
-                IconButton(
-                  tooltip: chat.forwardSingle,
-                  icon: const Icon(Icons.redo_rounded),
-                  onPressed: _multiSelectKeys.isEmpty
-                      ? null
-                      : () => unawaited(_forwardSelected(merge: false)),
+                ui.FlareConversationHeaderAction(
+                  id: 'forward',
+                  label: chat.forwardSingle,
+                  icon: 'share',
+                  enabled: _multiSelectKeys.isNotEmpty,
                 ),
-                IconButton(
-                  tooltip: chat.forwardMerged,
-                  icon: const Icon(Icons.library_books_outlined),
-                  onPressed: _multiSelectKeys.length < 2
-                      ? null
-                      : () => unawaited(_forwardSelected(merge: true)),
+                ui.FlareConversationHeaderAction(
+                  id: 'merge',
+                  label: chat.forwardMerged,
+                  icon: 'copy',
+                  enabled: _multiSelectKeys.length >= 2,
                 ),
-                IconButton(
-                  tooltip: chat.deleteSelfShort,
-                  icon: const Icon(Icons.delete_outline_rounded),
-                  onPressed: _multiSelectKeys.isEmpty
-                      ? null
-                      : () => unawaited(_deleteSelectedForSelf()),
+                ui.FlareConversationHeaderAction(
+                  id: 'delete',
+                  label: chat.deleteSelfShort,
+                  icon: 'trash',
+                  enabled: _multiSelectKeys.isNotEmpty,
                 ),
               ]
             : [
+                ui.FlareConversationHeaderAction(
+                  id: 'search',
+                  label: i18n.chat.searchMessages,
+                  icon: 'search',
+                ),
                 if (callEnabled &&
                     callController != null &&
-                    peerUserId.isNotEmpty)
-                  CallEntryActions(
-                    controller: callController,
-                    conversationId: _cid,
-                    peerUserId: peerUserId,
-                    iconColor: FlareThemeTokens.textSecondary,
+                    peerUserId.isNotEmpty) ...[
+                  const ui.FlareConversationHeaderAction(
+                    id: 'audioCall',
+                    label: 'Audio call',
+                    icon: 'phone',
                   ),
-                IconButton(
-                  tooltip: chat.sdkMessageType,
-                  icon: const Icon(
-                    Icons.hub_outlined,
-                    color: FlareThemeTokens.textSecondary,
+                  const ui.FlareConversationHeaderAction(
+                    id: 'videoCall',
+                    label: 'Video call',
+                    icon: 'video',
                   ),
-                  onPressed: () => unawaited(_showSdkMessageBuildMenu()),
+                ],
+                ui.FlareConversationHeaderAction(
+                  id: 'sdk',
+                  label: chat.sdkMessageType,
+                  icon: 'code',
+                  placement: ui.FlareConversationHeaderActionPlacement.add,
                 ),
-                PopupMenuButton<String>(
-                  icon: const Icon(
-                    Icons.more_horiz,
-                    color: FlareThemeTokens.textSecondary,
-                  ),
-                  onOpened: _dismissComposerMoreGrid,
-                  onSelected: (value) async {
-                    switch (value) {
-                      case 'details':
-                        await _openConversationDetails();
-                        break;
-                      case 'search':
-                        _openMessageSearch();
-                        break;
-                      case 'sync_meta':
-                        await _syncConversationMeta();
-                        break;
-                      case 'recall_last':
-                        final messages = ref.read(messageProvider(_cid));
-                        final own = messages
-                            .where((m) => m.senderId == me)
-                            .firstOrNull;
-                        if (own != null && own.serverId.isNotEmpty) {
-                          await outbound.chatRecall(_cid, own.serverId);
-                        }
-                        break;
-                      case 'pull_server':
-                        await _onRefresh();
-                        break;
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'details',
-                      child: ListTile(
-                        dense: true,
-                        leading: const Icon(Icons.info_outline_rounded),
-                        title: Text(i18n.chat.conversationDetails),
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'search',
-                      child: ListTile(
-                        dense: true,
-                        leading: const Icon(Icons.search),
-                        title: Text(i18n.chat.searchMessages),
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'sync_meta',
-                      child: ListTile(
-                        dense: true,
-                        leading: const Icon(Icons.sync_outlined),
-                        title: Text(i18n.chat.syncConversation),
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'pull_server',
-                      child: ListTile(
-                        dense: true,
-                        leading: const Icon(Icons.cloud_download_outlined),
-                        title: Text(i18n.chat.pullFromServer),
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'recall_last',
-                      child: ListTile(
-                        dense: true,
-                        leading: const Icon(Icons.undo),
-                        title: Text(chat.recallLatestSelf),
-                      ),
-                    ),
-                  ],
+                ui.FlareConversationHeaderAction(
+                  id: 'details',
+                  label: i18n.chat.conversationDetails,
+                  icon: 'info',
+                  placement: ui.FlareConversationHeaderActionPlacement.overflow,
+                ),
+                ui.FlareConversationHeaderAction(
+                  id: 'sync_meta',
+                  label: i18n.chat.syncConversation,
+                  icon: 'refresh',
+                  placement: ui.FlareConversationHeaderActionPlacement.overflow,
+                ),
+                ui.FlareConversationHeaderAction(
+                  id: 'pull_server',
+                  label: i18n.chat.pullFromServer,
+                  icon: 'download',
+                  placement: ui.FlareConversationHeaderActionPlacement.overflow,
+                ),
+                ui.FlareConversationHeaderAction(
+                  id: 'recall_last',
+                  label: chat.recallLatestSelf,
+                  icon: 'undo',
+                  placement: ui.FlareConversationHeaderActionPlacement.overflow,
                 ),
               ],
+        onAction: (action) async {
+          _dismissComposerMoreGrid();
+          switch (action.id) {
+            case 'forward':
+              await _forwardSelected(merge: false);
+            case 'merge':
+              await _forwardSelected(merge: true);
+            case 'delete':
+              await _deleteSelectedForSelf();
+            case 'sdk':
+              await _showSdkMessageBuildMenu();
+            case 'details':
+              await _openConversationDetails();
+            case 'search':
+              _openMessageSearch();
+            case 'sync_meta':
+              await _syncConversationMeta();
+            case 'pull_server':
+              await _onRefresh();
+            case 'recall_last':
+              final own = ref
+                  .read(messageProvider(_cid))
+                  .where((m) => m.senderId == me)
+                  .firstOrNull;
+              if (own != null && own.serverId.isNotEmpty) {
+                await outbound.chatRecall(_cid, own.serverId);
+              }
+            case 'audioCall':
+            case 'videoCall':
+              try {
+                await callController?.start(
+                  StartCallInput(
+                    conversationId: _cid,
+                    peerUserId: peerUserId,
+                    withVideo: action.id == 'videoCall',
+                  ),
+                );
+              } catch (error) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('$error')));
+                }
+              }
+          }
+        },
       ),
       body: Column(
         children: [
@@ -2047,7 +2043,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
                           20,
                         ),
                         emptyPlaceholder: FlareEmptyState(
-                          icon: Icons.chat_bubble_outline,
+                          icon: 'chats',
                           title: chat.noMessages,
                           description: chat.pullToSync,
                         ),
@@ -2075,6 +2071,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
             child: MessageComposer(
               key: _composerKey,
               conversationId: _cid,
+              onVoiceSend: (path, durationMs) async {
+                final target = _cid;
+                await ref
+                    .read(messageProvider(target).notifier)
+                    .sendAudioByPath(path);
+                return true;
+              },
               composeTargetName:
                   conversation?.displayTitle.trim().isNotEmpty == true
                   ? conversation!.displayTitle.trim()
@@ -2108,8 +2111,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
     final reconnecting = conn == im.ConnectionState.reconnecting;
     final connecting = conn == im.ConnectionState.connecting;
     final fg = ok
-        ? FlareThemeTokens.chatConnectionBannerFg
-        : FlareThemeTokens.textSecondary;
+        ? kit_theme.FlareColors.of(context).primary
+        : kit_theme.FlareColors.of(context).textSecondary;
     final String text;
     if (ok) {
       text = i18n.connectionStable;
@@ -2122,7 +2125,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
       text = '${i18n.connectionDisconnected} · ${i18n.connectionSendingHint}';
     }
     return Material(
-      color: FlareThemeTokens.chatConnectionBannerBg,
+      color: kit_theme.FlareColors.of(context).bgSelected,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 16),
         child: Row(
@@ -2141,7 +2144,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
                 text,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: kit_sizes.FlareSizes.fontSizeSm,
                   fontWeight: FontWeight.w500,
                   color: fg,
                 ),
@@ -2150,37 +2153,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _PresencePill extends ConsumerWidget {
-  const _PresencePill({required this.online});
-
-  final bool online;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final chat = ref.watch(flareMessagesProvider).chat;
-    final color = online ? const Color(0xFF07C160) : const Color(0xFFB2B2B2);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 7,
-          height: 7,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          online ? chat.online : chat.offline,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: FlareThemeTokens.textSecondary,
-          ),
-        ),
-      ],
     );
   }
 }

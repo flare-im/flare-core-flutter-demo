@@ -77,9 +77,13 @@ class SettingsScreen extends ConsumerWidget {
         onSelect: (item) {
           switch (item.key) {
             case 'lang_zh':
-              ref.read(flareLocaleProvider.notifier).setLocale(FlareLocale.zhCn);
+              ref
+                  .read(flareLocaleProvider.notifier)
+                  .setLocale(FlareLocale.zhCn);
             case 'lang_en':
-              ref.read(flareLocaleProvider.notifier).setLocale(FlareLocale.enUs);
+              ref
+                  .read(flareLocaleProvider.notifier)
+                  .setLocale(FlareLocale.enUs);
             case 'theme_system':
               ref.read(appThemeModeProvider.notifier).setMode(ThemeMode.system);
             case 'theme_light':

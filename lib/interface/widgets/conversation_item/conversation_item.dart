@@ -17,16 +17,13 @@ import 'package:flare_im/interface/theme/flare_im_design.dart';
 import 'package:flare_im/interface/widgets/message/plain_text_emoji_rich.dart';
 import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/layout/workbench_layout.dart';
-import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
+import 'package:flare_im_ui/flare_im_ui.dart' as kit_theme show FlareColors;
 import 'package:flare_im_ui/flare_im_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_slidable/flutter_slidable.dart';
 
 /// 会话列表项（设计稿：圆形头像 + 首字母淡色底、标题/时间、摘要 + 紫未读角标）
 class ConversationItem extends ConsumerWidget {
-  static const double _avatarSize = 54;
-
   final Conversation conversation;
 
   const ConversationItem({super.key, required this.conversation});
@@ -53,8 +50,7 @@ class ConversationItem extends ConsumerWidget {
     }
 
     // 通用外壳（头像 / 标题 / 时间 / 未读 / 静音图标 / 置顶点）交给 kit 的
-    // FlareConversationRow（四端一致）；表情/贴纸内联富预览、@我 / 草稿 / 群昵称
-    // 前缀由 app 通过 previewSpansBuilder 注入，kit 不感知资源系统。
+    // FlareConversationRow（四端一致）；app 只注入媒体资源预览，kit 管理状态前缀。
     final data = ConversationRowData(
       id: conversation.conversationId,
       title: titleText,
@@ -65,58 +61,51 @@ class ConversationItem extends ConsumerWidget {
       unreadCount: conversation.unreadCount,
       pinned: conversation.isPinned,
       muted: conversation.isMuted,
+      mentioned: conversation.isMentioned,
+      draftPreview: conversation.draft,
+      preview: formatStoragePreview(
+        conversation.lastMessagePreview ?? '',
+        locale: messages.locale.code,
+      ),
     );
 
-    return Semantics(
-      container: true,
-      button: true,
-      selected: selected,
-      label: _semanticsLabel(messages, titleText, selected: selected),
-      hint: messages.t('conversation.openA11y'),
-      onTap: openConversation,
-      child: Slidable(
-        key: ValueKey('conversation-${conversation.conversationId}'),
-        endActionPane: ActionPane(
-          motion: const DrawerMotion(),
-          extentRatio: 0.46,
-          children: [
-            SlidableAction(
-              onPressed: (_) => ref
-                  .read(imOutboundProvider)
-                  .conversationPin(
-                    conversation.conversationId,
-                    !conversation.isPinned,
-                  ),
-              backgroundColor: FlareImDesign.brandPurple,
-              foregroundColor: Colors.white,
-              icon: conversation.isPinned
-                  ? Icons.push_pin
-                  : Icons.push_pin_outlined,
-              label: conversation.isPinned
-                  ? messages.t('conversation.unpin')
-                  : messages.t('conversation.pin'),
-            ),
-            SlidableAction(
-              onPressed: (_) => ref
-                  .read(imOutboundProvider)
-                  .conversationDelete(conversation.conversationId),
-              backgroundColor: FlareImDesign.destructive,
-              foregroundColor: Colors.white,
-              icon: Icons.delete_outline_rounded,
-              label: messages.t('conversation.delete'),
-            ),
-          ],
+    return FlareConversationRow(
+      item: data,
+      draftLabel: messages.conversation.draftPrefix,
+      mentionLabel: messages.t('conversation.mentionPrefix'),
+      active: selected,
+      onSelect: openConversation,
+      onLongPress: () => _showConversationMenu(context, ref),
+      swipeActions: [
+        FlareConversationSwipeAction(
+          conversation.isPinned
+              ? FlareConversationAction.unpin
+              : FlareConversationAction.pin,
+          messages.t(
+            conversation.isPinned ? 'conversation.unpin' : 'conversation.pin',
+          ),
         ),
-        child: FlareConversationRow(
-          item: data,
-          avatarSize: _avatarSize,
-          active: selected,
-          onSelect: openConversation,
-          onAction: () => _showConversationMenu(context, ref),
-          previewSpansBuilder: (rowContext, base) =>
-              _previewSpans(rowContext, base, messages),
+        FlareConversationSwipeAction(
+          FlareConversationAction.delete,
+          messages.t('conversation.delete'),
         ),
-      ),
+      ],
+      onAction: (action) {
+        final outbound = ref.read(imOutboundProvider);
+        if (action == FlareConversationAction.delete) {
+          unawaited(_confirmDelete(context, ref));
+        } else if (action == FlareConversationAction.pin ||
+            action == FlareConversationAction.unpin) {
+          unawaited(
+            outbound.conversationPin(
+              conversation.conversationId,
+              action == FlareConversationAction.pin,
+            ),
+          );
+        }
+      },
+      previewSpansBuilder: (rowContext, base) =>
+          _previewSpans(rowContext, base, messages),
     );
   }
 
@@ -127,71 +116,8 @@ class ConversationItem extends ConsumerWidget {
     TextStyle base,
     FlareMessages messages,
   ) {
-    final draft = conversation.draft;
-    if (draft != null && draft.isNotEmpty) {
-      final draftStyle = base.copyWith(
-        color: FlareThemeTokens.conversationListDraftAccent,
-        fontWeight: FontWeight.w500,
-      );
-      return [
-        TextSpan(text: messages.conversation.draftPrefix, style: draftStyle),
-        ...plainTextEmojiInlineSpans(
-          context,
-          text: draft,
-          style: draftStyle,
-          secondaryForeground: FlareThemeTokens.textSecondary,
-          inlineEmojiEm: 1.72,
-          localeTag: messages.locale.code,
-        ),
-      ];
-    }
-
-    final prefix = <InlineSpan>[];
-    if (conversation.isMentioned) {
-      prefix.add(TextSpan(
-        text: messages.t('conversation.mentionPrefix'),
-        style: base.copyWith(
-          color: FlareThemeTokens.conversationListMentionAccent,
-          fontWeight: FontWeight.w600,
-        ),
-      ));
-    }
-
-    final media = _mediaPreviewSpans(context, base, messages);
-    if (media != null) return [...prefix, ...media];
-    return [...prefix, ..._previewSpanChildren(context, base, messages)];
-  }
-
-  String _semanticsLabel(
-    FlareMessages messages,
-    String titleText, {
-    required bool selected,
-  }) {
-    final parts = <String>[messages.t('conversation.a11yConv').replaceAll('{title}', titleText)];
-    if (selected) parts.add(messages.t('conversation.selected'));
-    if (conversation.isPinned) parts.add(messages.t('conversation.pinnedA11y'));
-    if (conversation.hasUnread) {
-      final count = conversation.unreadCount > 99
-          ? '99+'
-          : conversation.unreadCount.toString();
-      parts.add(messages.t('conversation.unreadCount').replaceAll('{count}', count));
-    }
-    final preview = _semanticsPreview(messages);
-    if (preview.isNotEmpty) parts.add(preview);
-    return parts.join('，');
-  }
-
-  String _semanticsPreview(FlareMessages messages) {
-    final draft = conversation.draft?.trim();
-    if (draft != null && draft.isNotEmpty) {
-      return '${messages.conversation.draftPrefix}$draft';
-    }
-    final preview = formatStoragePreview(
-      conversation.lastMessagePreview ?? '',
-      locale: messages.locale.code,
-    ).trim();
-    if (preview.isNotEmpty) return preview;
-    return messages.conversation.noMessagePreview;
+    return _mediaPreviewSpans(context, base, messages) ??
+        _previewSpanChildren(context, base, messages);
   }
 
   List<InlineSpan> _previewSpanChildren(
@@ -200,20 +126,6 @@ class ConversationItem extends ConsumerWidget {
     FlareMessages messages,
   ) {
     final c = conversation;
-    final d = c.draft;
-    if (d != null && d.isNotEmpty) {
-      return [
-        TextSpan(text: messages.conversation.draftPrefix, style: baseStyle),
-        ...plainTextEmojiInlineSpans(
-          context,
-          text: d,
-          style: baseStyle,
-          secondaryForeground: FlareThemeTokens.textSecondary,
-          inlineEmojiEm: 1.72,
-          localeTag: messages.locale.code,
-        ),
-      ];
-    }
     final raw = c.lastMessagePreview ?? '';
     final t = formatStoragePreview(raw, locale: messages.locale.code).trim();
     if (t.isNotEmpty && t != ' ') {
@@ -229,7 +141,9 @@ class ConversationItem extends ConsumerWidget {
               context,
               text: t,
               style: baseStyle,
-              secondaryForeground: FlareThemeTokens.textSecondary,
+              secondaryForeground: kit_theme.FlareColors.of(
+                context,
+              ).textSecondary,
               inlineEmojiEm: 1.72,
               localeTag: messages.locale.code,
             ),
@@ -240,7 +154,7 @@ class ConversationItem extends ConsumerWidget {
         context,
         text: t,
         style: baseStyle,
-        secondaryForeground: FlareThemeTokens.textSecondary,
+        secondaryForeground: kit_theme.FlareColors.of(context).textSecondary,
         inlineEmojiEm: 1.72,
         localeTag: messages.locale.code,
       );
@@ -356,86 +270,88 @@ class ConversationItem extends ConsumerWidget {
     );
   }
 
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final messages = ref.read(flareMessagesProvider);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => FlareDangerConfirm(
+        title: messages.t('conversation.deleteConv'),
+        description: messages.t('conversation.deleteConfirm'),
+        target: _lineTitle(conversation, messages),
+        confirmText: messages.t('conversation.confirm'),
+        cancelText: messages.t('conversation.cancel'),
+        onConfirm: () => Navigator.pop(dialogContext, true),
+        onCancel: () => Navigator.pop(dialogContext, false),
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      await ref
+          .read(imOutboundProvider)
+          .conversationDelete(conversation.conversationId);
+    }
+  }
+
   void _showConversationMenu(BuildContext context, WidgetRef ref) {
     final messages = ref.read(flareMessagesProvider);
     showModalBottomSheet<void>(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Icon(
-                conversation.isPinned
-                    ? Icons.push_pin_outlined
-                    : Icons.push_pin,
-              ),
-              title: Text(conversation.isPinned ? messages.t('conversation.unpin') : messages.t('conversation.pin')),
-              onTap: () {
-                ref
-                    .read(imOutboundProvider)
-                    .conversationPin(
-                      conversation.conversationId,
-                      !conversation.isPinned,
+      builder: (sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FlareConversationActionSheet(
+                conversation: FlareConversationActionSnapshot(
+                  id: conversation.conversationId,
+                  title: _lineTitle(conversation, messages),
+                  pinned: conversation.isPinned,
+                ),
+                capabilities: const FlareConversationActionCapabilities(
+                  pin: true,
+                  delete: true,
+                ),
+                pinText: messages.t('conversation.pin'),
+                unpinText: messages.t('conversation.unpin'),
+                deleteText: messages.t('conversation.deleteConv'),
+                onAction: (_, action) {
+                  Navigator.pop(sheetContext);
+                  if (action == FlareConversationAction.delete) {
+                    unawaited(_confirmDelete(context, ref));
+                  } else {
+                    unawaited(
+                      ref
+                          .read(imOutboundProvider)
+                          .conversationPin(
+                            conversation.conversationId,
+                            action == FlareConversationAction.pin,
+                          ),
                     );
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.sync),
-              title: Text(messages.t('conversation.syncThis')),
-              onTap: () async {
-                Navigator.pop(context);
-                await ref
-                    .read(imOutboundProvider)
-                    .conversationSync(conversation.conversationId);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text(messages.t('conversation.syncedThis'))));
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(
-                Icons.delete_outline,
-                color: FlareImDesign.destructive,
+                  }
+                },
               ),
-              title: Text(
-                messages.t('conversation.deleteConv'),
-                style: const TextStyle(color: FlareImDesign.destructive),
-              ),
-              onTap: () async {
-                final confirmed = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: Text(messages.t('conversation.deleteConv')),
-                    content: Text(messages.t('conversation.deleteConfirm')),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: Text(messages.t('conversation.cancel')),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: Text(messages.t('conversation.confirm')),
-                      ),
-                    ],
-                  ),
-                );
-
-                if (confirmed == true) {
-                  ref
+              FlareSettingsRow(
+                item: FlareSettingsItem(
+                  key: 'sync',
+                  label: messages.t('conversation.syncThis'),
+                  icon: 'refresh',
+                  kind: FlareSettingKind.value,
+                ),
+                onSelect: (_) async {
+                  Navigator.pop(sheetContext);
+                  await ref
                       .read(imOutboundProvider)
-                      .conversationDelete(conversation.conversationId);
-                }
-                if (context.mounted) Navigator.pop(context);
-              },
-            ),
-          ],
+                      .conversationSync(conversation.conversationId);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(messages.t('conversation.syncedThis')),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

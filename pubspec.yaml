@@ -16,7 +16,7 @@ dependencies:
   flare_core_flutter_sdk:
     path: ../../packages/flare-core-flutter-sdk
   flare_im_ui:
-    path: ../../../flare-im-design/flutter-im-ui
+    path: ../../../flare-im-design/packages/flutter-im-ui
   flare_call_kit:
     path: packages/flare_call_kit_stub
 
@@ -34,12 +34,7 @@ dependencies:
   url_launcher: ^6.3.2
   video_player: ^2.10.1
   record: ^6.1.2
-  # Flutter 3.44 removed ExtendSelectionByPageIntent; use upstream compat branch until pub release.
-  # https://github.com/fluttercandies/extended_text_field/pull/271
-  extended_text_field:
-    git:
-      url: https://github.com/fluttercandies/extended_text_field.git
-      ref: e433ae1aac3daeecc63a7a6d000e9926a4c57cfe
+  extended_text_field: ^17.0.0
 
   shared_preferences: ^2.5.5
   connectivity_plus: ^6.1.0

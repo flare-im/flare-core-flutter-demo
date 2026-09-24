@@ -1,11 +1,12 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flare_im/infrastructure/media/network_image_policy.dart';
-import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
+import 'package:flare_im_ui/flare_im_ui.dart' as ui;
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
-// 视频全屏播放、静音、关闭。
+/// Platform decoding only; player chrome and controls belong to the kit.
 class VideoPlayerModal {
   VideoPlayerModal._();
 
@@ -13,146 +14,232 @@ class VideoPlayerModal {
     BuildContext context, {
     required String videoUrl,
     String? posterUrl,
-  }) async {
-    if (!isHttpOrHttpsUrl(videoUrl) && !isLocalFileLikePath(videoUrl)) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('无法播放：无效视频地址')));
-      return;
-    }
-    await Navigator.of(context).push<void>(
-      PageRouteBuilder<void>(
-        opaque: false,
-        barrierColor: Colors.black87,
-        pageBuilder: (ctx, animation, secondaryAnimation) => _VideoPlayerPage(
-          videoUrl: videoUrl,
-          posterUrl: posterUrl != null && isHttpOrHttpsUrl(posterUrl)
-              ? posterUrl
-              : null,
-        ),
-      ),
-    );
-  }
+    bool audioOnly = false,
+    VideoPlayerController Function(String)? controllerFactory,
+  }) => ui.FlareVideoPlayer.present(
+    context,
+    videoSrc: videoUrl,
+    poster: posterUrl,
+    title: audioOnly ? '语音' : '视频',
+    playerBuilder: (_, source) => _PlatformPlayer(
+      source: source,
+      audioOnly: audioOnly,
+      controllerFactory: controllerFactory,
+    ),
+  );
 }
 
-class _VideoPlayerPage extends StatefulWidget {
-  final String videoUrl;
-  final String? posterUrl;
+class _PlatformPlayer extends StatefulWidget {
+  const _PlatformPlayer({
+    required this.source,
+    required this.audioOnly,
+    this.controllerFactory,
+  });
 
-  const _VideoPlayerPage({required this.videoUrl, this.posterUrl});
+  final String source;
+  final bool audioOnly;
+  final VideoPlayerController Function(String)? controllerFactory;
 
   @override
-  State<_VideoPlayerPage> createState() => _VideoPlayerPageState();
+  State<_PlatformPlayer> createState() => _PlatformPlayerState();
 }
 
-class _VideoPlayerPageState extends State<_VideoPlayerPage> {
-  late final VideoPlayerController _controller;
-  bool _muted = false;
+class _PlatformPlayerState extends State<_PlatformPlayer> {
+  VideoPlayerController? _controller;
+  String? _error;
+  int _generation = 0;
+  static const _loadTimeout = Duration(seconds: 20);
+
+  Future<void> _release(VideoPlayerController? controller) async {
+    if (controller == null) return;
+    controller.removeListener(_changed);
+    try {
+      await controller.dispose().timeout(const Duration(seconds: 5));
+    } catch (_) {
+      // A platform teardown failure must not strand retry or escape disposal.
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    final isLocal = isLocalFileLikePath(widget.videoUrl);
-    final localPath = widget.videoUrl.startsWith('file://')
-        ? Uri.parse(widget.videoUrl).toFilePath()
-        : widget.videoUrl;
-    _controller =
-        isLocal
-              ? VideoPlayerController.file(File(localPath))
-              : VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
-          ..initialize().then((_) {
-            if (mounted) setState(() {});
-          })
-          ..setLooping(false)
-          ..addListener(() {
-            if (mounted) setState(() {});
-          });
+    _load();
   }
+
+  Future<void> _load() async {
+    final generation = ++_generation;
+    final old = _controller;
+    _controller = null;
+    await _release(old);
+    if (!mounted || generation != _generation) return;
+    setState(() => _error = null);
+    final source = widget.source.trim();
+    if (!isHttpOrHttpsUrl(source) && !isLocalFileLikePath(source)) {
+      setState(() => _error = '无效媒体地址');
+      return;
+    }
+    try {
+      final controller =
+          widget.controllerFactory?.call(source) ??
+          (isLocalFileLikePath(source)
+              ? VideoPlayerController.file(
+                  File(
+                    source.startsWith('file:')
+                        ? Uri.parse(source).toFilePath()
+                        : source,
+                  ),
+                )
+              : VideoPlayerController.networkUrl(Uri.parse(source)));
+      _controller = controller;
+      controller.addListener(_changed);
+      await controller.initialize().timeout(_loadTimeout);
+      if (!mounted || generation != _generation) return;
+      await controller.setLooping(false).timeout(_loadTimeout);
+      if (!mounted || generation != _generation) return;
+      _changed();
+    } catch (_) {
+      if (mounted && generation == _generation) {
+        final failed = _controller;
+        _controller = null;
+        unawaited(_release(failed));
+        setState(() => _error = '无法播放此媒体');
+      }
+    }
+  }
+
+  void _changed() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _command(
+    Future<void> Function(VideoPlayerController) action,
+  ) async {
+    final controller = _controller;
+    final generation = _generation;
+    if (controller == null || !controller.value.isInitialized) return;
+    try {
+      await action(controller).timeout(_loadTimeout);
+    } catch (_) {
+      if (mounted && generation == _generation) {
+        setState(() => _error = '播放操作失败');
+      }
+    }
+  }
+
+  void _toggle() => _command((controller) async {
+    if (controller.value.isPlaying) {
+      await controller.pause();
+    } else {
+      if (controller.value.position >= controller.value.duration) {
+        await controller.seekTo(Duration.zero);
+      }
+      await controller.play();
+    }
+  });
+
+  void _seek(double ratio) => _command(
+    (controller) => controller.seekTo(
+      Duration(
+        milliseconds:
+            (controller.value.duration.inMilliseconds * ratio.clamp(0, 1))
+                .round(),
+      ),
+    ),
+  );
 
   @override
   void dispose() {
-    _controller.dispose();
+    _generation++;
+    unawaited(_release(_controller));
+    _controller = null;
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close, color: Colors.white),
-                ),
-                const Expanded(
-                  child: Text(
-                    '视频',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
+    final controller = _controller;
+    final value = controller?.value;
+    final failed = _error != null || value?.hasError == true;
+    final ready = !failed && value?.isInitialized == true;
+    return ui.FlareTheme(
+      colors: ui.FlareColors.dark,
+      child: SafeArea(
+        minimum: const EdgeInsets.all(ui.FlareSizes.spacingLg),
+        child: !ready
+            ? ui.FlareEmptyState(
+                title: failed ? (_error ?? '无法播放此媒体') : '正在加载',
+                loading: !failed,
+                tone: failed
+                    ? ui.FlareEmptyStateTone.error
+                    : ui.FlareEmptyStateTone.normal,
+                actionText: failed ? '重试' : null,
+                onAction: failed ? _load : null,
+              )
+            : widget.audioOnly
+            ? ui.FlareVoicePlayer(
+                durationLabel: _time(value!.duration),
+                elapsedLabel: _time(value.position),
+                progress: _progress(value),
+                playing: value.isPlaying,
+                speed: value.playbackSpeed,
+                onToggle: _toggle,
+                onSeek: _seek,
+                onCycleSpeed: () => _command(
+                  (c) => c.setPlaybackSpeed(
+                    c.value.playbackSpeed >= 2
+                        ? 1
+                        : c.value.playbackSpeed + 0.5,
                   ),
                 ),
-                IconButton(
-                  onPressed: () {
-                    setState(() {
-                      _muted = !_muted;
-                      _controller.setVolume(_muted ? 0 : 1);
-                    });
-                  },
-                  icon: Icon(
-                    _muted ? Icons.volume_off : Icons.volume_up,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-            Expanded(
-              child: Center(
-                child: _controller.value.isInitialized
-                    ? AspectRatio(
-                        aspectRatio: _controller.value.aspectRatio,
-                        child: VideoPlayer(_controller),
-                      )
-                    : const CircularProgressIndicator(
-                        color: FlareThemeTokens.primary,
-                      ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              )
+            : Column(
                 children: [
-                  FilledButton.icon(
-                    onPressed: () {
-                      if (_controller.value.isPlaying) {
-                        _controller.pause();
-                      } else {
-                        _controller.play();
-                      }
-                      setState(() {});
-                    },
-                    icon: Icon(
-                      _controller.value.isPlaying
-                          ? Icons.pause
-                          : Icons.play_arrow,
+                  Expanded(
+                    child: Center(
+                      child: AspectRatio(
+                        aspectRatio: value!.aspectRatio,
+                        child: VideoPlayer(controller!),
+                      ),
                     ),
-                    label: Text(_controller.value.isPlaying ? '暂停' : '播放'),
+                  ),
+                  Row(
+                    children: [
+                      ui.FlareIconButton(
+                        icon: value.isPlaying ? 'pause' : 'play',
+                        semanticLabel: value.isPlaying ? '暂停' : '播放',
+                        onPressed: _toggle,
+                      ),
+                      Expanded(
+                        child: ui.FlareSlider(
+                          value: _progress(value),
+                          max: 1,
+                          step: 0,
+                          onChanged: _seek,
+                        ),
+                      ),
+                      ui.FlareIconButton(
+                        icon: value.volume == 0 ? 'speaker-off' : 'speaker',
+                        semanticLabel: value.volume == 0 ? '取消静音' : '静音',
+                        onPressed: () => _command(
+                          (c) => c.setVolume(c.value.volume == 0 ? 1 : 0),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
+
+  static double _progress(VideoPlayerValue value) =>
+      value.duration.inMilliseconds > 0
+      ? (value.position.inMilliseconds / value.duration.inMilliseconds).clamp(
+          0,
+          1,
+        )
+      : 0;
+
+  static String _time(Duration duration) =>
+      '${duration.inMinutes}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}';
 }

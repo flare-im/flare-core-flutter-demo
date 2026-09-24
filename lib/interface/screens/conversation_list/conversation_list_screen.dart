@@ -27,6 +27,7 @@ import 'package:flare_im_ui/flare_im_ui.dart'
         FlareInput,
         FlarePresenceDot,
         FlareSegmentedControl;
+import 'package:flare_im_ui/flare_im_ui.dart' as kit_sizes show FlareSizes;
 import 'package:flutter/material.dart' hide ConnectionState;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -127,7 +128,7 @@ class _ConversationListScreenState
                             style: Theme.of(context).textTheme.headlineSmall
                                 ?.copyWith(
                                   fontWeight: FontWeight.w800,
-                                  fontSize: 28,
+                                  fontSize: kit_sizes.FlareSizes.fontSize4xl,
                                   letterSpacing: 0,
                                   color: FlareImDesign.foreground,
                                 ),
@@ -139,8 +140,7 @@ class _ConversationListScreenState
                     ),
                   ),
                   FlareIconButton(
-                    icon:
-                        _searchOpen ? Icons.close_rounded : Icons.search_rounded,
+                    icon: _searchOpen ? 'close' : 'search',
                     semanticLabel: i18n.search.title,
                     backgroundColor: FlareImDesign.listHeaderIconCircleBg,
                     tintColor: FlareImDesign.mutedForeground,
@@ -155,7 +155,7 @@ class _ConversationListScreenState
                   ),
                   const SizedBox(width: 10),
                   FlareIconButton(
-                    icon: Icons.add,
+                    icon: 'add',
                     semanticLabel: i18n.conversation.startChat,
                     backgroundColor: FlareImDesign.brandPurple,
                     tintColor: Colors.white,
@@ -164,7 +164,7 @@ class _ConversationListScreenState
                   ),
                   const SizedBox(width: 10),
                   FlareIconButton(
-                    icon: Icons.more_horiz_rounded,
+                    icon: 'more',
                     semanticLabel: i18n.composer.more,
                     backgroundColor: FlareImDesign.listHeaderIconCircleBg,
                     tintColor: FlareImDesign.mutedForeground,
@@ -299,7 +299,13 @@ class _ConversationListScreenState
                         .conversationBootstrapHomeTimeline();
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(i18n.t('conversation.homeSnapshotLoaded').replaceAll('{count}', '$count'))),
+                      SnackBar(
+                        content: Text(
+                          i18n
+                              .t('conversation.homeSnapshotLoaded')
+                              .replaceAll('{count}', '$count'),
+                        ),
+                      ),
                     );
                   },
                 ),
@@ -366,9 +372,11 @@ class _ConversationListScreenState
                   subtitle: i18n.t('conversation.profileDesc'),
                   onTap: () {
                     Navigator.pop(sheetContext);
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text(i18n.t('conversation.profileTodo'))));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(i18n.t('conversation.profileTodo')),
+                      ),
+                    );
                   },
                 ),
                 const SizedBox(height: 8),
@@ -433,9 +441,9 @@ class _ConversationListScreenState
       return;
     }
     if (conv.conversationId.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(i18n.t('conversation.emptyCid'))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(i18n.t('conversation.emptyCid'))));
       return;
     }
     im.conversationSetSelected(conv);
@@ -492,9 +500,15 @@ class _ConversationListScreenState
       }
       await _imOutbound.conversationListReload();
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(i18n.t('conversation.synced').replaceAll('{count}', '${ids.length}'))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            i18n
+                .t('conversation.synced')
+                .replaceAll('{count}', '${ids.length}'),
+          ),
+        ),
+      );
     } finally {
       idsCtrl.dispose();
     }
@@ -704,7 +718,7 @@ class _ConnectionStateBanner extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: color,
-                      fontSize: 12,
+                      fontSize: kit_sizes.FlareSizes.fontSizeSm,
                       height: 1.25,
                       fontWeight: FontWeight.w700,
                     ),
@@ -776,7 +790,7 @@ class _RuntimeStatusBanner extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: color,
-                              fontSize: 13,
+                              fontSize: kit_sizes.FlareSizes.fontSizeMd,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -787,7 +801,7 @@ class _RuntimeStatusBanner extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: FlareImDesign.mutedForeground,
-                              fontSize: 12,
+                              fontSize: kit_sizes.FlareSizes.fontSizeSm,
                               height: 1.25,
                             ),
                           ),
@@ -850,7 +864,7 @@ class _AccountSheetHeader extends StatelessWidget {
                   account.substring(0, 1).toUpperCase(),
                   style: const TextStyle(
                     color: FlareImDesign.brandPurple,
-                    fontSize: 20,
+                    fontSize: kit_sizes.FlareSizes.fontSize4xl,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -877,7 +891,7 @@ class _AccountSheetHeader extends StatelessWidget {
                   i18n.conversation.currentAccount,
                   style: const TextStyle(
                     color: FlareImDesign.mutedForeground,
-                    fontSize: 12,
+                    fontSize: kit_sizes.FlareSizes.fontSizeSm,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -888,7 +902,7 @@ class _AccountSheetHeader extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: FlareImDesign.foreground,
-                    fontSize: 17,
+                    fontSize: kit_sizes.FlareSizes.fontSize2xl,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -899,7 +913,7 @@ class _AccountSheetHeader extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: FlareImDesign.mutedForeground,
-                      fontSize: 12,
+                      fontSize: kit_sizes.FlareSizes.fontSizeSm,
                     ),
                   ),
               ],
@@ -968,7 +982,7 @@ class _MoreActionTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: fg,
-                          fontSize: 15,
+                          fontSize: kit_sizes.FlareSizes.fontSizeXl,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -979,7 +993,7 @@ class _MoreActionTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: FlareImDesign.mutedForeground,
-                          fontSize: 12,
+                          fontSize: kit_sizes.FlareSizes.fontSizeSm,
                         ),
                       ),
                     ],
@@ -1024,12 +1038,12 @@ class _ConversationEmptyState extends StatelessWidget {
     final actionable = !searching && !preparing;
     return FlareEmptyState(
       icon: searching
-          ? Icons.search_off_rounded
+          ? 'search'
           : failed
-          ? Icons.sync_problem_rounded
+          ? 'error'
           : preparing
-          ? Icons.sync_rounded
-          : Icons.chat_bubble_outline_rounded,
+          ? 'refresh'
+          : 'chats',
       title: searching
           ? i18n.conversation.emptySearchTitle
           : failed

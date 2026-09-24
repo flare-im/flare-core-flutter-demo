@@ -7,6 +7,7 @@ import 'package:flare_im/interface/screens/sdk_lab/sdk_lab_screen.dart';
 import 'package:flare_im/interface/screens/settings/settings_screen.dart';
 import 'package:flare_im/interface/shell/workbench_shell.dart';
 import 'package:flare_im/shared/layout/workbench_layout.dart';
+import 'package:flare_im_ui/flare_im_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -58,6 +59,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               );
             },
           ),
+          GoRoute(
+            path: '/media',
+            builder: (context, state) => const _UnavailableCapabilityScreen(
+              title: 'Media',
+              description:
+                  'Open a conversation to inspect SDK-backed media messages.',
+              icon: 'image',
+            ),
+          ),
+          GoRoute(
+            path: '/search',
+            builder: (context, state) => const MessageSearchScreen(),
+          ),
+          GoRoute(
+            path: '/settings',
+            builder: (context, state) => const SettingsScreen(),
+          ),
+          GoRoute(
+            path: '/sdk-lab',
+            builder: (context, state) => const SdkLabScreen(),
+          ),
         ],
       ),
 
@@ -69,21 +91,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             conversationId: decodeRouteConversationId(raw),
           );
         },
-      ),
-
-      GoRoute(
-        path: '/search',
-        builder: (context, state) => const MessageSearchScreen(),
-      ),
-
-      GoRoute(
-        path: '/settings',
-        builder: (context, state) => const SettingsScreen(),
-      ),
-
-      GoRoute(
-        path: '/sdk-lab',
-        builder: (context, state) => const SdkLabScreen(),
       ),
 
       GoRoute(
@@ -121,6 +128,29 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     observers: [appRouteObserver, _RouterObserver(ref)],
   );
 });
+
+class _UnavailableCapabilityScreen extends StatelessWidget {
+  const _UnavailableCapabilityScreen({
+    required this.title,
+    required this.description,
+    required this.icon,
+  });
+
+  final String title;
+  final String description;
+  final String icon;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(
+      child: FlareEmptyState(
+        title: title,
+        description: description,
+        icon: icon,
+      ),
+    ),
+  );
+}
 
 /// 路由监听器
 class _RouterObserver extends NavigatorObserver {

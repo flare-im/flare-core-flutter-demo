@@ -1,14 +1,13 @@
-import 'package:flare_im/application/providers/locale_provider.dart';
+import 'package:flare_im/application/providers/conversation_state_provider.dart';
 import 'package:flare_im/application/providers/workbench_ui_provider.dart';
 import 'package:flare_im/interface/screens/conversation_list/conversation_list_screen.dart';
-import 'package:flare_im/interface/theme/flare_im_design.dart';
 import 'package:flare_im/interface/widgets/conversation_details_panel.dart';
-import 'package:flare_im/shared/layout/workbench_layout.dart';
+import 'package:flare_im_ui/flare_im_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// 工作台外壳：宽屏三栏（列表 / 聊天 / 详情），窄屏仅展示路由子页。
+/// SDK route bridge around the public adaptive application shell.
 class WorkbenchShell extends ConsumerWidget {
   const WorkbenchShell({super.key, required this.child});
 
@@ -30,92 +29,126 @@ class WorkbenchShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!isWorkbenchWide(context)) {
-      return child;
-    }
-
     final location = GoRouterState.of(context).uri.path;
     final chatId = _chatIdFromLocation(location);
     final detailsOpen = ref.watch(workbenchDetailsOpenProvider);
-    final i18n = ref.watch(flareMessagesProvider);
-    final rawTextScale = MediaQuery.textScalerOf(context).scale(1);
-    final emptyStateTextScaler = TextScaler.linear(
-      rawTextScale.clamp(1.0, 1.25).toDouble(),
+    final activeId = _activeNavigationId(location);
+    final unread = ref.watch(
+      conversationProvider.select(
+        (items) => items.fold<int>(0, (sum, item) => sum + item.unreadCount),
+      ),
     );
+    final content = activeId == 'chats' && chatId == null
+        ? const FlareEmptyState(
+            title: 'Choose a conversation',
+            description:
+                'Select a conversation to open its SDK-backed timeline.',
+            icon: 'chats',
+          )
+        : child;
 
-    return Row(
-      children: [
-        const SizedBox(
-          width: 360,
-          child: ConversationListScreen(embedInWorkbench: true),
-        ),
-        const VerticalDivider(width: 1, thickness: 1),
-        Expanded(
-          child: chatId != null
-              ? child
-              : ColoredBox(
-                  color: FlareImDesign.mobileCanvas,
-                  child: Center(
-                    child: MediaQuery(
-                      data: MediaQuery.of(
-                        context,
-                      ).copyWith(textScaler: emptyStateTextScaler),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 360),
-                        child: Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.chat_bubble_outline_rounded,
-                                size: 56,
-                                color: FlareImDesign.brandPurple.withValues(
-                                  alpha: 0.5,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                i18n.chat.selectTitle,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                i18n.chat.selectHint,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: FlareImDesign.mutedForeground,
-                                  height: 1.4,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-        ),
-        if (detailsOpen && chatId != null) ...[
-          const VerticalDivider(width: 1, thickness: 1),
-          SizedBox(
-            width: 320,
-            child: ConversationDetailsPanel(
-              conversationId: chatId,
-              onClose: () =>
-                  ref.read(workbenchDetailsOpenProvider.notifier).state = false,
-            ),
-          ),
-        ],
-      ],
+    return FlareIMAppKit(
+      configuration: _configuration(unread),
+      activeNavigationId: activeId,
+      label: 'Flare IM Flutter SDK reference app',
+      destinationBuilder: (context, id) {
+        if (id != activeId) return const SizedBox.shrink();
+        final primary = id == 'chats'
+            ? const ConversationListScreen(embedInWorkbench: true)
+            : null;
+        final detail = chatId == null
+            ? null
+            : ConversationDetailsPanel(
+                conversationId: chatId,
+                onClose: () =>
+                    ref.read(workbenchDetailsOpenProvider.notifier).state =
+                        false,
+              );
+        return FlareAppLayout(
+          primary: primary,
+          content: content,
+          detail: detail,
+          hasDetail: detailsOpen && detail != null,
+          activePane: detailsOpen && detail != null
+              ? FlareWorkspacePane.detail
+              : primary != null && chatId == null
+              ? FlareWorkspacePane.primary
+              : FlareWorkspacePane.content,
+        );
+      },
+      onNavigate: (id) => context.go(_routeForNavigation(id)),
     );
   }
+
+  String _activeNavigationId(String location) {
+    if (location.startsWith('/chat/') || location == '/conversations') {
+      return 'chats';
+    }
+    return switch (location) {
+      '/search' => 'search',
+      '/media' => 'media',
+      '/settings' => 'settings',
+      '/sdk-lab' => 'sdk-lab',
+      _ => 'chats',
+    };
+  }
+
+  String _routeForNavigation(String id) => switch (id) {
+    'search' => '/search',
+    'media' => '/media',
+    'settings' => '/settings',
+    'sdk-lab' => '/sdk-lab',
+    _ => '/conversations',
+  };
+
+  FlareIMAppConfiguration _configuration(int unread) => FlareIMAppConfiguration(
+    features: const FlareFeatureSet({
+      'conversations',
+      'search',
+      'media',
+      'settings',
+    }),
+    capabilities: const FlareCapabilitySet({
+      'reply',
+      'media',
+      'retry',
+      'messageActions',
+    }),
+    navigation: [
+      FlareNavigationGroup(
+        id: 'reference',
+        items: [
+          FlareNavigationItem(
+            id: 'chats',
+            label: 'Chats',
+            icon: 'chats',
+            badge: unread > 0
+                ? FlareNavigationBadge(
+                    kind: FlareNavigationBadgeKind.count,
+                    count: unread,
+                    label: 'Unread conversations',
+                  )
+                : null,
+          ),
+          const FlareNavigationItem(
+            id: 'search',
+            label: 'Search',
+            icon: 'search',
+          ),
+          const FlareNavigationItem(id: 'media', label: 'Media', icon: 'image'),
+          const FlareNavigationItem(
+            id: 'settings',
+            label: 'Settings',
+            icon: 'settings',
+          ),
+          const FlareNavigationItem(
+            id: 'sdk-lab',
+            label: 'SDK Lab',
+            icon: 'diagnostics',
+            accessibilityLabel: 'Flutter SDK Lab',
+          ),
+        ],
+      ),
+    ],
+  );
 }

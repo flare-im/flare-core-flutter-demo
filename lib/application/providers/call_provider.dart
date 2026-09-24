@@ -6,11 +6,11 @@ import 'package:flare_im/application/providers/auth_state_provider.dart';
 import 'package:flare_im/application/providers/sdk_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 开发联调默认开启音视频通话，可通过 --dart-define=FLARE_ENABLE_CALL_KIT=false 关闭。
+/// A build flag cannot make the bundled non-RTC bridge available.
 final callKitEnabledProvider = Provider<bool>((ref) {
-  return const bool.fromEnvironment(
+  return FlutterWebRtcMediaBridge.isAvailable && const bool.fromEnvironment(
     'FLARE_ENABLE_CALL_KIT',
-    defaultValue: true,
+    defaultValue: false,
   );
 });
 

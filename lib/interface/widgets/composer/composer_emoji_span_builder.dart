@@ -2,7 +2,6 @@ import 'package:extended_text_field/extended_text_field.dart';
 import 'package:flare_im/infrastructure/media/composer_pack_assets.dart';
 import 'package:flare_im/infrastructure/media/emoji_pack_i18n.dart';
 import 'package:flare_im/infrastructure/media/pack_asset_resolver.dart';
-import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
 import 'package:flutter/material.dart';
 
 /// 与 [plainTextEmojiInlineSpans] / `TextView` 一致：`[pack_key]` → 行内 webp 或括号文案。
@@ -54,13 +53,9 @@ final class _EmojiPackBracketPattern extends RegExpSpecialText {
       actualText: full,
       start: start,
       style:
-          textStyle?.copyWith(
-            fontWeight: FontWeight.w500,
-            color: FlareThemeTokens.textSecondary,
-          ) ??
+          textStyle?.copyWith(fontWeight: FontWeight.w500) ??
           TextStyle(
             fontWeight: FontWeight.w500,
-            color: FlareThemeTokens.textSecondary,
             fontSize: textStyle?.fontSize,
             height: textStyle?.height,
           ),

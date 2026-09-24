@@ -77,3 +77,6 @@ macos/build/
 *.jks
 *.keystore
 key.properties
+
+# Gradle build output under android/ (root /build/ rule does not reach it)
+android/build/

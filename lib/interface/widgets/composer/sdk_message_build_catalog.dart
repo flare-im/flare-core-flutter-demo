@@ -51,8 +51,9 @@ class SdkMessageBuildCatalogEntry {
   });
 }
 
-List<SdkMessageBuildCatalogEntry> sdkMessageBuildCatalog(FlareComposerCopy c) =>
-    <SdkMessageBuildCatalogEntry>[
+List<SdkMessageBuildCatalogEntry> sdkMessageBuildCatalog(
+  FlareComposerCopy c,
+) => <SdkMessageBuildCatalogEntry>[
   SdkMessageBuildCatalogEntry(
     kind: SdkMessageBuildKind.threadReply,
     label: c.catThreadReply,
@@ -103,8 +104,14 @@ List<SdkMessageBuildCatalogEntry> sdkMessageBuildCatalog(FlareComposerCopy c) =>
         type: SdkMessageBuildFieldType.textarea,
       ),
       SdkMessageBuildField(key: 'zoom', label: c.fieldMapZoomOptional),
-      SdkMessageBuildField(key: 'snapshotUrl', label: c.fieldSnapshotUrlOptional),
-      SdkMessageBuildField(key: 'snapshotLocalPath', label: c.fieldSnapshotPathOptional),
+      SdkMessageBuildField(
+        key: 'snapshotUrl',
+        label: c.fieldSnapshotUrlOptional,
+      ),
+      SdkMessageBuildField(
+        key: 'snapshotLocalPath',
+        label: c.fieldSnapshotPathOptional,
+      ),
     ],
   ),
   SdkMessageBuildCatalogEntry(
@@ -223,8 +230,14 @@ List<SdkMessageBuildCatalogEntry> sdkMessageBuildCatalog(FlareComposerCopy c) =>
     fields: [
       const SdkMessageBuildField(key: 'scheduleId', label: 'scheduleId'),
       SdkMessageBuildField(key: 'title', label: c.fieldTitle),
-      SdkMessageBuildField(key: 'startAfterMinutes', label: c.fieldStartAfterMinutes),
-      SdkMessageBuildField(key: 'durationMinutes', label: c.fieldDurationMinutes),
+      SdkMessageBuildField(
+        key: 'startAfterMinutes',
+        label: c.fieldStartAfterMinutes,
+      ),
+      SdkMessageBuildField(
+        key: 'durationMinutes',
+        label: c.fieldDurationMinutes,
+      ),
       SdkMessageBuildField(
         key: 'participantUserIds',
         label: c.fieldParticipants,

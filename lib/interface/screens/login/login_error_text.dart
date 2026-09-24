@@ -11,6 +11,4 @@ bool isTokenRejectedLoginError(Object error) =>
 
 /// token 被拒时给一句可读的双语提示（[m] 走当前语言），否则原样返回错误串。
 String friendlyLoginError(Object error, FlareMessages m) =>
-    isTokenRejectedLoginError(error)
-    ? m.login.tokenRejected
-    : error.toString();
+    isTokenRejectedLoginError(error) ? m.login.tokenRejected : error.toString();

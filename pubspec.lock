@@ -284,12 +284,11 @@ packages:
   extended_text_field:
     dependency: "direct main"
     description:
-      path: "."
-      ref: e433ae1aac3daeecc63a7a6d000e9926a4c57cfe
-      resolved-ref: e433ae1aac3daeecc63a7a6d000e9926a4c57cfe
-      url: "https://github.com/fluttercandies/extended_text_field.git"
-    source: git
-    version: "16.0.2"
+      name: extended_text_field
+      sha256: "495b8cc6b4a66b5323d71afe1df1c5f08b716fdc925e4339aeaa14a2f0cf65a9"
+      url: "https://pub.dev"
+    source: hosted
+    version: "17.0.0"
   extended_text_library:
     dependency: transitive
     description:
@@ -387,10 +386,10 @@ packages:
   flare_im_ui:
     dependency: "direct main"
     description:
-      path: "../../../flare-im-design/flutter-im-ui"
+      path: "../../../flare-im-design/packages/flutter-im-ui"
       relative: true
     source: path
-    version: "1.0.5"
+    version: "2.0.0-rc.1"
   flutter:
     dependency: "direct main"
     description: flutter

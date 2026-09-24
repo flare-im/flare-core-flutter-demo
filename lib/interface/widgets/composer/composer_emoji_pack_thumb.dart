@@ -1,7 +1,8 @@
 import 'package:flare_im/infrastructure/media/composer_static_asset_image.dart';
 import 'package:flare_im/infrastructure/media/emoji_pack_i18n.dart';
 import 'package:flare_im/infrastructure/media/pack_asset_resolver.dart';
-import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
+import 'package:flare_im_ui/flare_im_ui.dart' as kit_sizes show FlareSizes;
+import 'package:flare_im_ui/flare_im_ui.dart' as kit_theme show FlareColors;
 import 'package:flutter/material.dart';
 
 /// `assets/emoji/<key>.webp` 缩略图，与会话内 `[key]` 与 [ComposerEmojiSpanBuilder] 一致。
@@ -43,9 +44,9 @@ class ComposerEmojiPackThumb extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 9,
-                    color: FlareThemeTokens.textSecondary,
+                  style: TextStyle(
+                    fontSize: kit_sizes.FlareSizes.fontSizeXs,
+                    color: kit_theme.FlareColors.of(context).textSecondary,
                   ),
                 ),
               ),

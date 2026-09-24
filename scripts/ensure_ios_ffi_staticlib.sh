@@ -208,13 +208,32 @@ rustup_target_add() {
 
 build_target() {
   local target="$1"
+  local sdk_name sdk_root deployment_target target_key clang clangxx archive_tool
+
+  case "$target" in
+    aarch64-apple-ios)
+      sdk_name="iphoneos"
+      ;;
+    aarch64-apple-ios-sim|x86_64-apple-ios)
+      sdk_name="iphonesimulator"
+      ;;
+    *)
+      fail "unsupported Rust iOS target: $target"
+      ;;
+  esac
+
+  sdk_root="$(xcrun --sdk "$sdk_name" --show-sdk-path)"
+  clang="$(xcrun --sdk "$sdk_name" --find clang)"
+  clangxx="$(xcrun --sdk "$sdk_name" --find clang++)"
+  archive_tool="$(xcrun --sdk "$sdk_name" --find ar)"
+  deployment_target="${FLARE_IOS_DEPLOYMENT_TARGET:-15.0}"
+  target_key="${target//-/_}"
+
   rustup_target_add "$target"
   log "cargo build -p $FFI_PACKAGE --target $target"
   (
     cd "$CORE_SDK_ROOT"
     env \
-      -u SDKROOT \
-      -u IPHONEOS_DEPLOYMENT_TARGET \
       -u MACOSX_DEPLOYMENT_TARGET \
       -u CC \
       -u CXX \
@@ -223,6 +242,12 @@ build_target() {
       -u CXXFLAGS \
       -u CPPFLAGS \
       -u LDFLAGS \
+      "SDKROOT=$sdk_root" \
+      "IPHONEOS_DEPLOYMENT_TARGET=$deployment_target" \
+      "CC_${target_key}=$clang" \
+      "CXX_${target_key}=$clangxx" \
+      "AR_${target_key}=$archive_tool" \
+      RUSTC_WRAPPER= \
       cargo build --release --target "$target" --manifest-path "$CORE_MANIFEST" -p "$FFI_PACKAGE"
   )
 }

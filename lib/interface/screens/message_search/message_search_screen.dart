@@ -9,6 +9,7 @@ import 'package:flare_im/interface/theme/flare_im_design.dart';
 import 'package:flare_im/interface/widgets/message/plain_text_emoji_rich.dart';
 import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/layout/workbench_layout.dart';
+import 'package:flare_im_ui/flare_im_ui.dart' as kit_sizes show FlareSizes;
 import 'package:flare_im_ui/flare_im_ui.dart' show FlareInput;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -131,7 +132,7 @@ class _MessageSearchScreenState extends ConsumerState<MessageSearchScreen> {
             child: Text(
               scopeLabel,
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: kit_sizes.FlareSizes.fontSizeSm,
                 fontWeight: FontWeight.w600,
                 color: FlareImDesign.mutedForeground,
               ),
@@ -206,7 +207,7 @@ class _MessageSearchScreenState extends ConsumerState<MessageSearchScreen> {
                     ? search.noResults
                     : search.resultCount(_results.length),
                 style: const TextStyle(
-                  fontSize: 13,
+                  fontSize: kit_sizes.FlareSizes.fontSizeMd,
                   color: FlareImDesign.mutedForeground,
                 ),
               ),
@@ -237,11 +238,16 @@ class _MessageSearchScreenState extends ConsumerState<MessageSearchScreen> {
                         ),
                         title: PlainTextEmojiRich(
                           text: m.content.previewText,
-                          style: const TextStyle(fontSize: 15, height: 1.35),
+                          style: const TextStyle(
+                            fontSize: kit_sizes.FlareSizes.fontSizeXl,
+                            height: 1.35,
+                          ),
                         ),
                         subtitle: Text(
                           'seq ${m.seq} · ${m.senderDisplayName.isNotEmpty ? m.senderDisplayName : m.senderId}',
-                          style: const TextStyle(fontSize: 12),
+                          style: const TextStyle(
+                            fontSize: kit_sizes.FlareSizes.fontSizeSm,
+                          ),
                         ),
                         trailing: _cid == null
                             ? TextButton(

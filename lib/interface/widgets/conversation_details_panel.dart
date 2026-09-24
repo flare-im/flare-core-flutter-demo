@@ -11,6 +11,8 @@ import 'package:flare_im/domain/value_objects/conversation_type.dart';
 import 'package:flare_im/interface/theme/flare_im_design.dart';
 import 'package:flare_im/shared/i18n/flare_messages.dart';
 import 'package:flare_im/shared/layout/workbench_layout.dart';
+import 'package:flare_im_ui/flare_im_ui.dart' as kit_sizes show FlareSizes;
+import 'package:flare_im_ui/flare_im_ui.dart' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -142,7 +144,10 @@ class ConversationDetailsPanel extends ConsumerWidget {
             const SizedBox(height: 20),
             Text(
               i18n.statusSection,
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: kit_sizes.FlareSizes.fontSizeLg,
+              ),
             ),
             const SizedBox(height: 8),
             _InfoRow(label: 'Conversation ID', value: c.conversationId),
@@ -152,7 +157,10 @@ class ConversationDetailsPanel extends ConsumerWidget {
             const SizedBox(height: 16),
             Text(
               i18n.extensions,
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: kit_sizes.FlareSizes.fontSizeLg,
+              ),
             ),
             const SizedBox(height: 8),
             ListTile(
@@ -267,7 +275,10 @@ class _EmptyPane extends StatelessWidget {
           children: [
             Text(
               title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              style: const TextStyle(
+                fontSize: kit_sizes.FlareSizes.fontSize3xl,
+                fontWeight: FontWeight.w800,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -299,33 +310,24 @@ class _Hero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (bg, fg) = FlareImDesign.avatarPastelForKey(avatarKey);
     return Column(
       children: [
-        CircleAvatar(
-          radius: 28,
-          backgroundColor: bg,
-          child: Text(
-            title.characters.first.toUpperCase(),
-            style: TextStyle(
-              color: fg,
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
+        ui.FlareAvatar(userId: avatarKey, displayName: title),
         const SizedBox(height: 12),
         Text(
           title,
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          style: const TextStyle(
+            fontSize: kit_sizes.FlareSizes.fontSize3xl,
+            fontWeight: FontWeight.w800,
+          ),
         ),
         const SizedBox(height: 4),
         Text(
           subtitle,
           style: const TextStyle(
             color: FlareImDesign.mutedForeground,
-            fontSize: 13,
+            fontSize: kit_sizes.FlareSizes.fontSizeMd,
           ),
         ),
         const SizedBox(height: 10),
@@ -356,7 +358,10 @@ class _TagChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        style: const TextStyle(
+          fontSize: kit_sizes.FlareSizes.fontSizeSm,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -384,7 +389,7 @@ class _ActionChip extends StatelessWidget {
       labelStyle: TextStyle(
         color: danger ? FlareImDesign.destructive : FlareImDesign.foreground,
         fontWeight: FontWeight.w600,
-        fontSize: 13,
+        fontSize: kit_sizes.FlareSizes.fontSizeMd,
       ),
     );
   }
@@ -407,7 +412,7 @@ class _InfoRow extends StatelessWidget {
             child: Text(
               label,
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: kit_sizes.FlareSizes.fontSizeSm,
                 color: FlareImDesign.mutedForeground,
               ),
             ),
@@ -415,7 +420,10 @@ class _InfoRow extends StatelessWidget {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                fontSize: kit_sizes.FlareSizes.fontSizeSm,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],

@@ -4,7 +4,8 @@ import 'package:flare_im/infrastructure/media/pack_asset_resolver.dart';
 import 'package:flare_im/infrastructure/media/plain_text_markdown_detect.dart';
 import 'package:flare_im/interface/theme/flare_im_design.dart';
 import 'package:flare_im/interface/widgets/message/emoji_plain_text_segments.dart';
-import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
+import 'package:flare_im_ui/flare_im_ui.dart' as kit_sizes show FlareSizes;
+import 'package:flare_im_ui/flare_im_ui.dart' as kit_theme show FlareColors;
 import 'package:flutter/material.dart';
 
 // 纯文本 + `[pack_key]` 行内表情（非 Markdown 才拆表情）。
@@ -112,7 +113,7 @@ buildPlainTextEmojiLayoutPlan(
       localeTag ?? Localizations.maybeLocaleOf(context)?.toLanguageTag();
   final fontSize = textStyle.fontSize ?? FlareImDesign.messageBubbleFontSize;
   final textHeight = textStyle.height ?? FlareImDesign.messageBubbleTextHeight;
-  final fg = textStyle.color ?? FlareThemeTokens.textPrimary;
+  final fg = textStyle.color ?? kit_theme.FlareColors.of(context).textPrimary;
   final base = TextStyle(fontSize: fontSize, height: textHeight);
 
   int plainLines(double w) => plainTextEmojiLayoutLineCount(
@@ -141,7 +142,7 @@ buildPlainTextEmojiLayoutPlan(
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: secondaryForeground,
-                fontSize: 20,
+                fontSize: kit_sizes.FlareSizes.fontSize4xl,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -158,7 +159,7 @@ buildPlainTextEmojiLayoutPlan(
           EmojiPackI18n.formatBracket(loneUnknown.key, locale: locale),
           style: TextStyle(
             color: secondaryForeground,
-            fontSize: 20,
+            fontSize: kit_sizes.FlareSizes.fontSize4xl,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -201,7 +202,7 @@ buildPlainTextEmojiLayoutPlan(
                 EmojiPackI18n.formatBracket(p.key, locale: locale),
                 style: TextStyle(
                   color: secondaryForeground,
-                  fontSize: 13,
+                  fontSize: kit_sizes.FlareSizes.fontSizeMd,
                   fontWeight: FontWeight.w500,
                   height: textHeight,
                 ),
@@ -271,7 +272,7 @@ class PlainTextEmojiRich extends StatelessWidget {
     final secondaryColor =
         unknownBracketStyle?.color ??
         style.color?.withValues(alpha: 0.72) ??
-        FlareThemeTokens.textSecondary;
+        kit_theme.FlareColors.of(context).textSecondary;
     final ellipsize =
         overflow ?? (maxLines != null ? TextOverflow.ellipsis : null);
 

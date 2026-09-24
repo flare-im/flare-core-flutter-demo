@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flare_core_flutter_sdk/flare_core_flutter_sdk.dart' as core;
 import 'package:flare_im/infrastructure/paths/sdk_data_url.dart';
 import 'package:flare_im/infrastructure/sdk/flare_core_sdk_wrapper.dart';
-import 'package:flare_im/shared/config/app_defaults_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -28,7 +27,6 @@ void main() {
         }
       });
 
-      const defaults = AppDefaults.fallback;
       await sdk
           .init(
             SdkConfig(

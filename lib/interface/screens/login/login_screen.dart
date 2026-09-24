@@ -135,8 +135,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final im = ref.read(imOutboundProvider);
       final dataUrl = await resolveSdkDataUrl();
       if (mounted) {
-        setState(() => _loginStage =
-            ref.read(flareMessagesProvider).login.stageInitializing);
+        setState(
+          () => _loginStage = ref
+              .read(flareMessagesProvider)
+              .login
+              .stageInitializing,
+        );
       }
       // SDK 托管:核心向 Gateway 签发接入 token 并自动刷新;客户端从不持有签名密钥。
       await im.authEnsureSdkInitialized(
@@ -152,8 +156,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       final userId = _userIdController.text.trim();
       if (mounted) {
-        setState(() => _loginStage =
-            ref.read(flareMessagesProvider).login.stageConnecting);
+        setState(
+          () => _loginStage = ref
+              .read(flareMessagesProvider)
+              .login
+              .stageConnecting,
+        );
       }
       await im.authLogin(userId, null);
       await SavedSessionStore.save(
@@ -173,7 +181,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = friendlyLoginError(e, ref.read(flareMessagesProvider));
+          _errorMessage = friendlyLoginError(
+            e,
+            ref.read(flareMessagesProvider),
+          );
         });
       }
     } finally {
@@ -296,7 +307,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           const SizedBox(height: FlareSizes.spacingSm),
           Text(
             l10n.welcomeSubtitle,
-            style: TextStyle(color: c.textSecondary, fontSize: FlareSizes.fontSizeLg),
+            style: TextStyle(
+              color: c.textSecondary,
+              fontSize: FlareSizes.fontSizeLg,
+            ),
           ),
           const SizedBox(height: FlareSizes.spacingLg),
           FlareFormField(
@@ -314,7 +328,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: FlareSegmentedControl(
               options: ['WebSocket', 'QUIC', l10n.transportRace as String],
               selectedIndex: protocolIndex,
-              onSelect: (i) => setState(() => _transportMode = _transportOrder[i]),
+              onSelect: (i) =>
+                  setState(() => _transportMode = _transportOrder[i]),
             ),
           ),
           const SizedBox(height: FlareSizes.spacingLg),
@@ -330,7 +345,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: c.primary),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: c.primary,
+                  ),
                 ),
                 const SizedBox(width: FlareSizes.spacingSm),
                 Expanded(
@@ -406,7 +424,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   AnimatedRotation(
                     turns: _serverOpen ? 0.5 : 0,
                     duration: const Duration(milliseconds: 180),
-                    child: Icon(Icons.expand_more, size: 20, color: c.textTertiary),
+                    child: Icon(
+                      Icons.expand_more,
+                      size: 20,
+                      color: c.textTertiary,
+                    ),
                   ),
                 ],
               ),
@@ -415,18 +437,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: FlareSizes.spacingLg),
               FlareFormField(
                 label: l10n.wsAddress,
-                child: FlareInput(controller: _serverUrlController, placeholder: 'ws://host:60051/ws'),
+                child: FlareInput(
+                  controller: _serverUrlController,
+                  placeholder: 'ws://host:60051/ws',
+                ),
               ),
               const SizedBox(height: FlareSizes.spacingLg),
               FlareFormField(
                 label: l10n.gatewayAddress,
                 hint: l10n.gatewayHint,
-                child: FlareInput(controller: _httpUrlController, placeholder: 'http://host:50050'),
+                child: FlareInput(
+                  controller: _httpUrlController,
+                  placeholder: 'http://host:50050',
+                ),
               ),
               const SizedBox(height: FlareSizes.spacingLg),
               FlareFormField(
                 label: l10n.quicAddress,
-                child: FlareInput(controller: _quicUrlController, placeholder: 'quic://host:60052'),
+                child: FlareInput(
+                  controller: _quicUrlController,
+                  placeholder: 'quic://host:60052',
+                ),
               ),
             ],
           ],
@@ -466,7 +497,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.login_rounded, size: 18, color: Colors.white),
+                          const Icon(
+                            Icons.login_rounded,
+                            size: 18,
+                            color: Colors.white,
+                          ),
                           const SizedBox(width: FlareSizes.spacingSm),
                           Text(
                             l10n.loginButton,
@@ -502,7 +537,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             Expanded(
               child: Text(
                 message,
-                style: TextStyle(color: c.textSecondary, fontSize: FlareSizes.fontSizeSm),
+                style: TextStyle(
+                  color: c.textSecondary,
+                  fontSize: FlareSizes.fontSizeSm,
+                ),
                 maxLines: 3,
               ),
             ),
@@ -531,4 +569,3 @@ class _LoginGridPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

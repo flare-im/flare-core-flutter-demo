@@ -9,7 +9,8 @@ import 'package:flare_im/interface/widgets/composer/composer_emoji_span_builder.
 import 'package:flare_im/interface/widgets/composer/composer_inline_text_field.dart';
 import 'package:flare_im/interface/widgets/composer/composer_models.dart';
 import 'package:flare_im/shared/i18n/flare_messages.dart';
-import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
+import 'package:flare_im_ui/flare_im_ui.dart' as kit_sizes show FlareSizes;
+import 'package:flare_im_ui/flare_im_ui.dart' as kit_theme show FlareColors;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -75,7 +76,7 @@ Future<void> showComposerEmojiStickerSheet(
           ),
           Container(
             height: sheetHeight,
-            color: const Color(0xFFEEF1F6),
+            color: kit_theme.FlareColors.of(ctx).bgSecondary,
             child: _ComposerEmojiStickerPanel(
               initialBottomTab: initialBottomTab,
               panelDraftController: panelDraftController,
@@ -162,8 +163,6 @@ class _ComposerEmojiStickerPanel extends ConsumerStatefulWidget {
 
 class _ComposerEmojiStickerPanelState
     extends ConsumerState<_ComposerEmojiStickerPanel> {
-  static const Color _panelTint = Color(0xFFEEF1F6);
-
   FlareComposerCopy get _c => ref.read(flareMessagesProvider).composer;
 
   late int _bottomTab;
@@ -319,7 +318,7 @@ class _ComposerEmojiStickerPanelState
             height: 4,
             margin: const EdgeInsets.only(top: 2, bottom: 2),
             decoration: BoxDecoration(
-              color: FlareThemeTokens.borderPrimary,
+              color: kit_theme.FlareColors.of(context).borderPrimary,
               borderRadius: BorderRadius.circular(999),
             ),
           ),
@@ -331,7 +330,7 @@ class _ComposerEmojiStickerPanelState
           ),
         Expanded(
           child: ColoredBox(
-            color: _panelTint,
+            color: kit_theme.FlareColors.of(context).bgSecondary,
             child: _bottomTab == 0
                 ? _buildEmojiPage()
                 : _buildStickerPage(_packageIds[_bottomTab - 1]),
@@ -353,9 +352,9 @@ class _ComposerEmojiStickerPanelState
           child: Text(
             _c.emojiAssetsMissing,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: FlareThemeTokens.textSecondary,
-              fontSize: 14,
+            style: TextStyle(
+              color: kit_theme.FlareColors.of(context).textSecondary,
+              fontSize: kit_sizes.FlareSizes.fontSizeLg,
               height: 1.4,
             ),
           ),
@@ -372,9 +371,11 @@ class _ComposerEmojiStickerPanelState
               child: Text(
                 _c.frequentlyUsed,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: kit_sizes.FlareSizes.fontSizeSm,
                   fontWeight: FontWeight.w600,
-                  color: FlareThemeTokens.textSecondary.withValues(alpha: 0.95),
+                  color: kit_theme.FlareColors.of(
+                    context,
+                  ).textSecondary.withValues(alpha: 0.95),
                 ),
               ),
             ),
@@ -405,9 +406,11 @@ class _ComposerEmojiStickerPanelState
             child: Text(
               _c.defaultEmoji,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: kit_sizes.FlareSizes.fontSizeSm,
                 fontWeight: FontWeight.w600,
-                color: FlareThemeTokens.textSecondary.withValues(alpha: 0.95),
+                color: kit_theme.FlareColors.of(
+                  context,
+                ).textSecondary.withValues(alpha: 0.95),
               ),
             ),
           ),
@@ -444,7 +447,9 @@ class _ComposerEmojiStickerPanelState
       return Center(
         child: Text(
           _c.noWebpInPack,
-          style: const TextStyle(color: FlareThemeTokens.textSecondary),
+          style: TextStyle(
+            color: kit_theme.FlareColors.of(context).textSecondary,
+          ),
         ),
       );
     }
@@ -462,7 +467,7 @@ class _ComposerEmojiStickerPanelState
         return Tooltip(
           message: it.alt,
           child: Material(
-            color: FlareThemeTokens.bgPrimary,
+            color: kit_theme.FlareColors.of(context).bgPrimary,
             borderRadius: BorderRadius.circular(10),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
@@ -479,9 +484,9 @@ class _ComposerEmojiStickerPanelState
                   assetPath: it.assetPath,
                   fit: BoxFit.contain,
                   decodeSize: 128,
-                  error: const Icon(
+                  error: Icon(
                     Icons.broken_image_outlined,
-                    color: FlareThemeTokens.textSecondary,
+                    color: kit_theme.FlareColors.of(context).textSecondary,
                   ),
                 ),
               ),
@@ -495,7 +500,7 @@ class _ComposerEmojiStickerPanelState
   Widget _buildBottomBar(BuildContext context) {
     final sendEnabled = widget.onPanelSend != null && widget.panelDraftEnabled;
     return Material(
-      color: FlareThemeTokens.bgPrimary,
+      color: kit_theme.FlareColors.of(context).bgPrimary,
       elevation: 0,
       child: SafeArea(
         top: false,
@@ -510,13 +515,13 @@ class _ComposerEmojiStickerPanelState
                 constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                 padding: EdgeInsets.zero,
                 onPressed: () {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text(_c.customEmojiPackPlaceholder)));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(_c.customEmojiPackPlaceholder)),
+                  );
                 },
-                icon: const Icon(
+                icon: Icon(
                   Icons.add_circle_outline,
-                  color: FlareThemeTokens.textSecondary,
+                  color: kit_theme.FlareColors.of(context).textSecondary,
                 ),
               ),
               _BottomPackChip(
@@ -526,8 +531,8 @@ class _ComposerEmojiStickerPanelState
                   Icons.emoji_emotions_outlined,
                   size: 20,
                   color: _bottomTab == 0
-                      ? FlareThemeTokens.primary
-                      : FlareThemeTokens.textSecondary,
+                      ? kit_theme.FlareColors.of(context).primary
+                      : kit_theme.FlareColors.of(context).textSecondary,
                 ),
               ),
               if (widget.onPickSticker != null)
@@ -553,7 +558,7 @@ class _ComposerEmojiStickerPanelState
                       }
                     : null,
                 style: FilledButton.styleFrom(
-                  backgroundColor: FlareThemeTokens.primary,
+                  backgroundColor: kit_theme.FlareColors.of(context).primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -567,7 +572,10 @@ class _ComposerEmojiStickerPanelState
                 ),
                 child: Text(
                   _c.send,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: kit_sizes.FlareSizes.fontSizeMd,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -593,8 +601,8 @@ class _BottomPackChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: selected
-          ? FlareThemeTokens.bgSelected
-          : FlareThemeTokens.bgTertiary,
+          ? kit_theme.FlareColors.of(context).bgSelected
+          : kit_theme.FlareColors.of(context).bgTertiary,
       shape: const CircleBorder(),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -614,10 +622,10 @@ class _StickerPackTabIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final first = ComposerPackAssets.firstStickerInPackage(packageId);
     if (first == null) {
-      return const Icon(
+      return Icon(
         Icons.collections_outlined,
         size: 20,
-        color: FlareThemeTokens.textSecondary,
+        color: kit_theme.FlareColors.of(context).textSecondary,
       );
     }
     return ClipOval(
@@ -660,7 +668,7 @@ Future<void> showComposerAttachSheet(
                   height: 4,
                   margin: const EdgeInsets.only(top: 8, bottom: 12),
                   decoration: BoxDecoration(
-                    color: FlareThemeTokens.borderPrimary,
+                    color: kit_theme.FlareColors.of(context).borderPrimary,
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
@@ -669,10 +677,10 @@ Future<void> showComposerAttachSheet(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                 child: Text(
                   i18n.more,
-                  style: const TextStyle(
-                    fontSize: 16,
+                  style: TextStyle(
+                    fontSize: kit_sizes.FlareSizes.fontSize2xl,
                     fontWeight: FontWeight.w600,
-                    color: FlareThemeTokens.textPrimary,
+                    color: kit_theme.FlareColors.of(context).textPrimary,
                   ),
                 ),
               ),
@@ -682,22 +690,24 @@ Future<void> showComposerAttachSheet(
                   child: ListTile(
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(
-                        color: FlareThemeTokens.borderSecondary,
+                      side: BorderSide(
+                        color: kit_theme.FlareColors.of(
+                          context,
+                        ).borderSecondary,
                       ),
                     ),
-                    leading: const Icon(
+                    leading: Icon(
                       Icons.emoji_emotions_outlined,
-                      color: FlareThemeTokens.textSecondary,
+                      color: kit_theme.FlareColors.of(context).textSecondary,
                     ),
                     title: Text(i18n.emojiSticker),
                     subtitle: Text(
                       i18n.emojiStickerDesc,
                       style: TextStyle(
-                        fontSize: 12,
-                        color: FlareThemeTokens.textSecondary.withValues(
-                          alpha: 0.9,
-                        ),
+                        fontSize: kit_sizes.FlareSizes.fontSizeSm,
+                        color: kit_theme.FlareColors.of(
+                          context,
+                        ).textSecondary.withValues(alpha: 0.9),
                       ),
                     ),
                     onTap: () {
@@ -821,7 +831,7 @@ class _AttachTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: FlareThemeTokens.bgTertiary,
+      color: kit_theme.FlareColors.of(context).bgTertiary,
       borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -831,17 +841,21 @@ class _AttachTile extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 28, color: FlareThemeTokens.textSecondary),
+              Icon(
+                icon,
+                size: 28,
+                color: kit_theme.FlareColors.of(context).textSecondary,
+              ),
               const SizedBox(height: 8),
               Text(
                 label,
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 13,
+                style: TextStyle(
+                  fontSize: kit_sizes.FlareSizes.fontSizeMd,
                   fontWeight: FontWeight.w500,
-                  color: FlareThemeTokens.textPrimary,
+                  color: kit_theme.FlareColors.of(context).textPrimary,
                 ),
               ),
               if (subtitle != null)
@@ -853,10 +867,10 @@ class _AttachTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 10,
-                      color: FlareThemeTokens.textSecondary.withValues(
-                        alpha: 0.95,
-                      ),
+                      fontSize: kit_sizes.FlareSizes.fontSizeXs,
+                      color: kit_theme.FlareColors.of(
+                        context,
+                      ).textSecondary.withValues(alpha: 0.95),
                     ),
                   ),
                 ),
@@ -944,8 +958,10 @@ Future<void> showComposerExpandedEditor(
 
       Widget tbIcon(IconData icon, String tip, VoidCallback? onTap) {
         final c = disabled
-            ? FlareThemeTokens.composerToolbarIcon.withValues(alpha: 0.38)
-            : FlareThemeTokens.composerToolbarIcon;
+            ? kit_theme.FlareColors.of(
+                context,
+              ).textSecondary.withValues(alpha: 0.38)
+            : kit_theme.FlareColors.of(context).textSecondary;
         return IconButton(
           tooltip: tip,
           visualDensity: VisualDensity.compact,
@@ -973,7 +989,7 @@ Future<void> showComposerExpandedEditor(
             SizedBox(
               height: panelH,
               child: Material(
-                color: FlareThemeTokens.bgSecondary,
+                color: kit_theme.FlareColors.of(context).bgSecondary,
                 child: StatefulBuilder(
                   builder: (modalCtx, setModalState) {
                     void finishSendLive() {
@@ -998,10 +1014,12 @@ Future<void> showComposerExpandedEditor(
                               hintText: hintText,
                               enabled: !disabled,
                               maxLength: maxLength,
-                              style: const TextStyle(
-                                fontSize: 16,
+                              style: TextStyle(
+                                fontSize: kit_sizes.FlareSizes.fontSize2xl,
                                 height: 1.45,
-                                color: FlareThemeTokens.textPrimary,
+                                color: kit_theme.FlareColors.of(
+                                  context,
+                                ).textPrimary,
                               ),
                               hintFontSize: 16,
                               specialTextSpanBuilder:
@@ -1038,11 +1056,14 @@ Future<void> showComposerExpandedEditor(
                                 keyboardBottom > 0 ? 4 : 10,
                               ),
                               decoration: BoxDecoration(
-                                color: FlareThemeTokens.bgSecondary,
+                                color: kit_theme.FlareColors.of(
+                                  context,
+                                ).bgSecondary,
                                 border: Border(
                                   top: BorderSide(
-                                    color: FlareThemeTokens.borderSecondary
-                                        .withValues(alpha: 0.95),
+                                    color: kit_theme.FlareColors.of(
+                                      context,
+                                    ).borderSecondary.withValues(alpha: 0.95),
                                     width: 0.5,
                                   ),
                                 ),
@@ -1103,8 +1124,12 @@ Future<void> showComposerExpandedEditor(
                                       Icons.send_rounded,
                                       size: 22,
                                       color: canSubmitNow
-                                          ? FlareThemeTokens.primary
-                                          : FlareThemeTokens.textDisabled,
+                                          ? kit_theme.FlareColors.of(
+                                              context,
+                                            ).primary
+                                          : kit_theme.FlareColors.of(
+                                              context,
+                                            ).textDisabled,
                                     ),
                                   ),
                                 ],

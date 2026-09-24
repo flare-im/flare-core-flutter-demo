@@ -4,22 +4,18 @@ import 'package:flare_im/application/providers/chat_outbound_provider.dart';
 import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/infrastructure/media/plain_text_markdown_detect.dart';
 import 'package:flare_im/interface/widgets/composer/composer_emoji_span_builder.dart';
-import 'package:flare_im/interface/widgets/composer/composer_inline_text_field.dart';
 import 'package:flare_im/interface/widgets/composer/composer_models.dart';
-import 'package:flare_im/interface/widgets/composer/composer_reply_strip.dart';
 import 'package:flare_im/interface/widgets/composer/composer_sheets.dart';
 import 'package:flare_im/interface/widgets/composer/draft_idle_scheduler.dart';
-import 'package:flare_im/interface/widgets/composer/rich_text_composer_formatter.dart';
 import 'package:flare_im/shared/i18n/flare_messages.dart';
-import 'package:flare_im/shared/theme/flare_theme_tokens.dart';
+import 'package:flare_im_ui/flare_im_ui.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 export 'composer_models.dart';
 
 /// 文本输入：输入态（typing）、草稿变更回调（输入静默后调 SDK）。
-/// 布局：浅灰底栏 [FlareThemeTokens.bgSecondary]；上行 [ComposerInlineTextField]（与表情面板草稿同款）+ 框内右侧展开；
+/// 输入区由组件库 Composer 管理，宿主只连接 SDK 行为和权限。
 /// 下行六格均分工具条（线框灰图标）；点「+」展开 4×2 宫格，展开时为「×」同风格收起。
 /// 可选 [composeTargetName] → 占位「发送给 xxx」。
 /// 发送（文本 / 点选表情立即发 / 贴纸意图）经 [chatOutboundProvider] 派发，由 [ChatScreen] 统一调 SDK。
@@ -37,6 +33,7 @@ class MessageComposer extends ConsumerStatefulWidget {
   /// 「+」更多入口（附件等）；后续可扩展音视频通话等，未实现业务时可仅 SnackBar 占位。
   final void Function(ComposerPickMediaKind kind)? onPickMedia;
 
+  final Future<bool> Function(String path, int durationMs)? onVoiceSend;
   final int? maxLength;
   final String placeholder;
   final bool disabled;
@@ -53,6 +50,7 @@ class MessageComposer extends ConsumerStatefulWidget {
     this.replyQuote,
     this.onClearReply,
     this.onPickMedia,
+    this.onVoiceSend,
     this.maxLength,
     this.placeholder = 'Type a message...',
     this.disabled = false,
@@ -76,21 +74,11 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
   bool _typingActive = false;
 
   /// 富文本模式（Aa）；作为持久输入模式，发送后保留。
-  bool _richTextEnabled = false;
-  RichComposerFormatting _richFormatting = const RichComposerFormatting();
+  final _kitKey = GlobalKey<FlareComposerState>();
 
   /// 圆形「+」下方的内联功能宫格（4×2）；与 [showComposerAttachSheet] 并存，「全部附件」进 Sheet。
-  bool _moreGridOpen = false;
 
   bool get _isStackLayout => _controller.text.contains('\n');
-
-  bool get _replyPreviewWarn {
-    final t = widget.replyQuote?.preview ?? '';
-    return RegExp(
-      r'失败|错误|fail|error|invalid|expired|⚠|警告|异常',
-      caseSensitive: false,
-    ).hasMatch(t);
-  }
 
   String get _effectiveHint {
     final name = widget.composeTargetName?.trim();
@@ -216,29 +204,11 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
   }
 
   void _closeMoreGrid() {
-    if (!_moreGridOpen) return;
-    setState(() => _moreGridOpen = false);
+    _kitKey.currentState?.dismissPanel();
   }
 
   /// 收起「+」内联宫格（例如点击消息区时通过 [GlobalKey<MessageComposerState>] 调用）。
-  void dismissMoreFeatureGrid() => _closeMoreGrid();
-
-  void _toggleMoreGrid() {
-    if (widget.disabled) return;
-    setState(() {
-      _moreGridOpen = !_moreGridOpen;
-      if (_moreGridOpen) {
-        _focusNode.unfocus();
-      }
-    });
-  }
-
-  void _snackComingSoon(String name) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(_c.placeholderName(name))));
-  }
+  void dismissMoreFeatureGrid() => _kitKey.currentState?.dismissPanel();
 
   void _pickMedia(ComposerPickMediaKind kind) {
     if (widget.onPickMedia != null) {
@@ -275,9 +245,7 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
           PlainTextMarkdownDetect.isMarkdown(_controller.text)
           ? null
           : ComposerEmojiSpanBuilder(inlineSize: 15 * 1.72, localeTag: locale),
-      onPanelExpandPressed: widget.disabled
-          ? null
-          : () => unawaited(_openExpandedEditor()),
+
       onPanelSubmitted: _submit,
       onInsertBracket: (s) {
         _insertAtCursor(s);
@@ -304,787 +272,94 @@ class MessageComposerState extends ConsumerState<MessageComposer> {
     await _showEmojiStickerSheet(context);
   }
 
-  void _toggleRichText() {
-    _closeMoreGrid();
-    if (widget.disabled) return;
-    setState(() {
-      _richTextEnabled = !_richTextEnabled;
-      if (!_richTextEnabled) {
-        _richFormatting = const RichComposerFormatting();
-      }
-    });
-    if (_richTextEnabled) {
-      _focusNode.requestFocus();
-    }
-  }
-
-  Future<void> _openExpandedEditor() async {
-    _closeMoreGrid();
-    await showComposerExpandedEditor(
-      context,
-      controller: _controller,
-      focusNode: _focusNode,
-      placeholder: _effectiveHint,
-      maxLength: widget.maxLength,
-      disabled: widget.disabled,
-      onChanged: _onTextChanged,
-      onSend: () => _submit(_controller.text),
-      i18n: _c,
-      onEmojiSticker: () => _showEmojiStickerSheet(context),
-      onPickMedia: _pickMedia,
-      onInsertAtCursor: _insertAtCursor,
-    );
-  }
-
-  void _submit(String text) {
-    final t = text.trim();
-    if (t.isEmpty) return;
-    _typingIdleTimer?.cancel();
+  bool _submit(String text) {
+    final value = text.trim();
+    if (value.isEmpty || widget.disabled) return false;
     _cancelPendingDraftSave();
     _setTyping(false);
     ref
         .read(chatOutboundProvider(widget.conversationId).notifier)
         .dispatch(
-          _richTextEnabled
+          PlainTextMarkdownDetect.isMarkdown(value)
               ? ChatOutboundSendRichDoc(
                   format: ChatRichDocInputFormat.markdown,
-                  source: RichComposerMarkdownSerializer.serialize(
-                    t,
-                    _richFormatting,
-                  ),
+                  source: value,
                 )
-              : PlainTextMarkdownDetect.isMarkdown(t)
-              ? ChatOutboundSendRichDoc(
-                  format: ChatRichDocInputFormat.markdown,
-                  source: t,
-                )
-              : ChatOutboundSendText(t),
+              : ChatOutboundSendText(value),
         );
-    _controller.clear();
-    _closeMoreGrid();
-    setState(() {});
-    _focusNode.unfocus();
-  }
-
-  void _toggleInlineStyle(RichComposerInlineStyle style) {
-    if (widget.disabled) return;
-    setState(() {
-      _richFormatting = _richFormatting.toggleInline(style);
-    });
-    _focusNode.requestFocus();
-  }
-
-  void _toggleBlockStyle(RichComposerBlockStyle style) {
-    if (widget.disabled) return;
-    setState(() {
-      _richFormatting = _richFormatting.toggleBlock(style);
-    });
-    _focusNode.requestFocus();
-  }
-
-  TextStyle _inputTextStyle() {
-    final inline = _richFormatting.inlineStyles;
-    return TextStyle(
-      fontSize: _richFormatting.blockStyle == RichComposerBlockStyle.heading
-          ? 17
-          : 15,
-      height: 1.45,
-      color: inline.contains(RichComposerInlineStyle.link)
-          ? FlareThemeTokens.primary
-          : FlareThemeTokens.textPrimary,
-      fontWeight:
-          inline.contains(RichComposerInlineStyle.bold) ||
-              _richFormatting.blockStyle == RichComposerBlockStyle.heading
-          ? FontWeight.w700
-          : FontWeight.w400,
-      fontStyle: inline.contains(RichComposerInlineStyle.italic)
-          ? FontStyle.italic
-          : FontStyle.normal,
-      decoration:
-          inline.contains(RichComposerInlineStyle.strike) ||
-              inline.contains(RichComposerInlineStyle.link)
-          ? TextDecoration.combine([
-              if (inline.contains(RichComposerInlineStyle.strike))
-                TextDecoration.lineThrough,
-              if (inline.contains(RichComposerInlineStyle.link))
-                TextDecoration.underline,
-            ])
-          : TextDecoration.none,
-      fontFamily: inline.contains(RichComposerInlineStyle.inlineCode)
-          ? 'Menlo'
-          : null,
-    );
-  }
-
-  /// 上行：[ComposerInlineTextField] + 框内右侧「展开」。
-  /// 发送：软键盘「发送」→ [onSubmitted]；硬键盘回车→发送，Shift+回车→换行。
-  Widget _buildInputRow({required int minLines, required int maxLines}) {
-    return Focus(
-      onKeyEvent: (node, event) {
-        if (event is! KeyDownEvent) return KeyEventResult.ignored;
-        if (event.logicalKey != LogicalKeyboardKey.enter &&
-            event.logicalKey != LogicalKeyboardKey.numpadEnter) {
-          return KeyEventResult.ignored;
-        }
-        if (HardwareKeyboard.instance.isShiftPressed) {
-          return KeyEventResult.ignored;
-        }
-        _submit(_controller.text);
-        return KeyEventResult.handled;
-      },
-      child: ComposerInlineTextField(
-        controller: _controller,
-        focusNode: _focusNode,
-        hintText: _effectiveHint,
-        minLines: minLines,
-        maxLines: maxLines,
-        maxLength: widget.maxLength,
-        enabled: !widget.disabled,
-        keyboardType: TextInputType.multiline,
-        textInputAction: TextInputAction.send,
-        style: _richTextEnabled ? _inputTextStyle() : null,
-        specialTextSpanBuilder:
-            _richTextEnabled ||
-                PlainTextMarkdownDetect.isMarkdown(_controller.text)
-            ? null
-            : ComposerEmojiSpanBuilder(
-                inlineSize: 15 * 1.72,
-                localeTag: Localizations.maybeLocaleOf(
-                  context,
-                )?.toLanguageTag(),
-              ),
-        onChanged: _onTextChanged,
-        onSubmitted: _submit,
-        onExpandPressed: widget.disabled
-            ? null
-            : () => unawaited(_openExpandedEditor()),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-      ),
-    );
-  }
-
-  Widget _formatChip({
-    required Widget child,
-    required String tooltip,
-    required bool selected,
-    required VoidCallback onPressed,
-  }) {
-    final foreground = selected
-        ? FlareThemeTokens.primary
-        : FlareThemeTokens.textSecondary;
-    final background = selected
-        ? FlareThemeTokens.bgSelected
-        : FlareThemeTokens.bgPrimary;
-    return Tooltip(
-      message: tooltip,
-      child: Semantics(
-        button: true,
-        selected: selected,
-        label: tooltip,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: widget.disabled ? null : onPressed,
-            borderRadius: BorderRadius.circular(15),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 140),
-              width: 30,
-              height: 30,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: widget.disabled
-                    ? background.withValues(alpha: 0.42)
-                    : background,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: selected
-                      ? FlareThemeTokens.primary.withValues(alpha: 0.18)
-                      : FlareThemeTokens.borderSecondary.withValues(
-                          alpha: 0.62,
-                        ),
-                  width: 0.5,
-                ),
-              ),
-              child: IconTheme.merge(
-                data: IconThemeData(color: foreground, size: 15),
-                child: DefaultTextStyle.merge(
-                  style: TextStyle(
-                    color: foreground,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    height: 1,
-                  ),
-                  child: child,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _formatText(String value, {bool italic = false, bool strike = false}) {
-    return Text(
-      value,
-      style: TextStyle(
-        fontStyle: italic ? FontStyle.italic : FontStyle.normal,
-        decoration: strike ? TextDecoration.lineThrough : TextDecoration.none,
-      ),
-    );
-  }
-
-  Widget _buildRichFormatStrip() {
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
-      child: _richTextEnabled
-          ? Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _formatChip(
-                      child: _formatText('Aa'),
-                      tooltip: _c.heading,
-                      selected: _richFormatting.isBlockActive(
-                        RichComposerBlockStyle.heading,
-                      ),
-                      onPressed: () =>
-                          _toggleBlockStyle(RichComposerBlockStyle.heading),
-                    ),
-                    const SizedBox(width: 6),
-                    _formatChip(
-                      child: _formatText('B'),
-                      tooltip: _c.bold,
-                      selected: _richFormatting.isInlineActive(
-                        RichComposerInlineStyle.bold,
-                      ),
-                      onPressed: () =>
-                          _toggleInlineStyle(RichComposerInlineStyle.bold),
-                    ),
-                    const SizedBox(width: 6),
-                    _formatChip(
-                      child: _formatText('S', strike: true),
-                      tooltip: _c.strike,
-                      selected: _richFormatting.isInlineActive(
-                        RichComposerInlineStyle.strike,
-                      ),
-                      onPressed: () =>
-                          _toggleInlineStyle(RichComposerInlineStyle.strike),
-                    ),
-                    const SizedBox(width: 6),
-                    _formatChip(
-                      child: _formatText('I', italic: true),
-                      tooltip: _c.italic,
-                      selected: _richFormatting.isInlineActive(
-                        RichComposerInlineStyle.italic,
-                      ),
-                      onPressed: () =>
-                          _toggleInlineStyle(RichComposerInlineStyle.italic),
-                    ),
-                    const SizedBox(width: 6),
-                    _formatChip(
-                      child: const Icon(Icons.format_list_bulleted_rounded),
-                      tooltip: _c.bulletList,
-                      selected: _richFormatting.isBlockActive(
-                        RichComposerBlockStyle.bulletList,
-                      ),
-                      onPressed: () =>
-                          _toggleBlockStyle(RichComposerBlockStyle.bulletList),
-                    ),
-                    const SizedBox(width: 6),
-                    _formatChip(
-                      child: const Icon(Icons.format_list_numbered_rounded),
-                      tooltip: _c.orderedList,
-                      selected: _richFormatting.isBlockActive(
-                        RichComposerBlockStyle.orderedList,
-                      ),
-                      onPressed: () =>
-                          _toggleBlockStyle(RichComposerBlockStyle.orderedList),
-                    ),
-                    const SizedBox(width: 6),
-                    _formatChip(
-                      child: const Icon(Icons.format_quote_rounded),
-                      tooltip: _c.quote,
-                      selected: _richFormatting.isBlockActive(
-                        RichComposerBlockStyle.quote,
-                      ),
-                      onPressed: () =>
-                          _toggleBlockStyle(RichComposerBlockStyle.quote),
-                    ),
-                    const SizedBox(width: 6),
-                    _formatChip(
-                      child: const Icon(Icons.code_rounded),
-                      tooltip: _c.codeBlock,
-                      selected: _richFormatting.isBlockActive(
-                        RichComposerBlockStyle.codeBlock,
-                      ),
-                      onPressed: () =>
-                          _toggleBlockStyle(RichComposerBlockStyle.codeBlock),
-                    ),
-                    const SizedBox(width: 6),
-                    _formatChip(
-                      child: _formatText('{}'),
-                      tooltip: _c.inlineCode,
-                      selected: _richFormatting.isInlineActive(
-                        RichComposerInlineStyle.inlineCode,
-                      ),
-                      onPressed: () => _toggleInlineStyle(
-                        RichComposerInlineStyle.inlineCode,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    _formatChip(
-                      child: const Icon(Icons.link_rounded),
-                      tooltip: _c.link,
-                      selected: _richFormatting.isInlineActive(
-                        RichComposerInlineStyle.link,
-                      ),
-                      onPressed: () =>
-                          _toggleInlineStyle(RichComposerInlineStyle.link),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          : const SizedBox(width: double.infinity),
-    );
-  }
-
-  Widget _toolbarIconButton({
-    required IconData icon,
-    required String tooltip,
-    required VoidCallback? onPressed,
-    bool selected = false,
-  }) {
-    final base = selected
-        ? FlareThemeTokens.primary
-        : FlareThemeTokens.composerToolbarIcon;
-    final color = widget.disabled ? base.withValues(alpha: 0.38) : base;
-    return IconButton(
-      tooltip: tooltip,
-      visualDensity: VisualDensity.compact,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-      onPressed: widget.disabled ? null : onPressed,
-      icon: Icon(icon, size: 24, color: color),
-    );
-  }
-
-  Widget _moreGridTile({
-    required String label,
-    required IconData icon,
-    required Color background,
-    required VoidCallback onTap,
-  }) {
-    final enabled = !widget.disabled;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: enabled
-            ? () {
-                onTap();
-              }
-            : null,
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: enabled
-                      ? background
-                      : background.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: Colors.white, size: 22),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10,
-                  height: 1.15,
-                  color: enabled
-                      ? FlareThemeTokens.textSecondary
-                      : FlareThemeTokens.textDisabled,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 宫格单元顶部对齐，避免行距被单元格纵向居中拉大。
-  Widget _moreGridTileAligned({
-    required String label,
-    required IconData icon,
-    required Color background,
-    required VoidCallback onTap,
-  }) {
-    return Align(
-      alignment: Alignment.topCenter,
-      child: _moreGridTile(
-        label: label,
-        icon: icon,
-        background: background,
-        onTap: onTap,
-      ),
-    );
-  }
-
-  /// 工具栏下方 4×2 宫格。
-  Widget _buildMoreFeatureGrid() {
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
-      child: _moreGridOpen
-          ? Padding(
-              padding: const EdgeInsets.fromLTRB(0, 6, 0, 0),
-              child: GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 4,
-                mainAxisSpacing: 2,
-                crossAxisSpacing: 6,
-                childAspectRatio: 1.05,
-                children: [
-                  _moreGridTileAligned(
-                    label: _c.file,
-                    icon: Icons.folder_outlined,
-                    background: FlareThemeTokens.warning,
-                    onTap: () {
-                      _closeMoreGrid();
-                      _pickMedia(ComposerPickMediaKind.file);
-                    },
-                  ),
-                  _moreGridTileAligned(
-                    label: _c.video,
-                    icon: Icons.videocam_outlined,
-                    background: FlareThemeTokens.primaryHover,
-                    onTap: () {
-                      _closeMoreGrid();
-                      _pickMedia(ComposerPickMediaKind.video);
-                    },
-                  ),
-                  _moreGridTileAligned(
-                    label: _c.location,
-                    icon: Icons.location_on_outlined,
-                    background: FlareThemeTokens.info,
-                    onTap: () {
-                      _closeMoreGrid();
-                      _restartDraftIdleWindow();
-                      ref
-                          .read(
-                            chatOutboundProvider(
-                              widget.conversationId,
-                            ).notifier,
-                          )
-                          .dispatch(
-                            const ChatOutboundRequestBusinessMessage(
-                              ChatBusinessMessageKind.location,
-                            ),
-                          );
-                    },
-                  ),
-                  _moreGridTileAligned(
-                    label: _c.contact,
-                    icon: Icons.badge_outlined,
-                    background: FlareThemeTokens.primaryActive,
-                    onTap: () {
-                      _closeMoreGrid();
-                      _restartDraftIdleWindow();
-                      ref
-                          .read(
-                            chatOutboundProvider(
-                              widget.conversationId,
-                            ).notifier,
-                          )
-                          .dispatch(
-                            const ChatOutboundRequestBusinessMessage(
-                              ChatBusinessMessageKind.contactCard,
-                            ),
-                          );
-                    },
-                  ),
-                  _moreGridTileAligned(
-                    label: _c.schedule,
-                    icon: Icons.event_note_outlined,
-                    background: FlareThemeTokens.important,
-                    onTap: () {
-                      _closeMoreGrid();
-                      _restartDraftIdleWindow();
-                      ref
-                          .read(
-                            chatOutboundProvider(
-                              widget.conversationId,
-                            ).notifier,
-                          )
-                          .dispatch(
-                            const ChatOutboundRequestBusinessMessage(
-                              ChatBusinessMessageKind.schedule,
-                            ),
-                          );
-                    },
-                  ),
-                  _moreGridTileAligned(
-                    label: _c.task,
-                    icon: Icons.task_alt_outlined,
-                    background: FlareThemeTokens.robot,
-                    onTap: () {
-                      _closeMoreGrid();
-                      _restartDraftIdleWindow();
-                      ref
-                          .read(
-                            chatOutboundProvider(
-                              widget.conversationId,
-                            ).notifier,
-                          )
-                          .dispatch(
-                            const ChatOutboundRequestBusinessMessage(
-                              ChatBusinessMessageKind.task,
-                            ),
-                          );
-                    },
-                  ),
-                  _moreGridTileAligned(
-                    label: _c.vote,
-                    icon: Icons.poll_outlined,
-                    background: FlareThemeTokens.success,
-                    onTap: () {
-                      _closeMoreGrid();
-                      _snackComingSoon(_c.vote);
-                    },
-                  ),
-                  _moreGridTileAligned(
-                    label: _c.link,
-                    icon: Icons.link_rounded,
-                    background: FlareThemeTokens.info,
-                    onTap: () {
-                      _closeMoreGrid();
-                      _snackComingSoon(_c.link);
-                    },
-                  ),
-                  _moreGridTileAligned(
-                    label: _c.miniProgram,
-                    icon: Icons.apps_rounded,
-                    background: FlareThemeTokens.primaryHover,
-                    onTap: () {
-                      _closeMoreGrid();
-                      _snackComingSoon(_c.miniProgram);
-                    },
-                  ),
-                  _moreGridTileAligned(
-                    label: _c.topic,
-                    icon: Icons.forum_outlined,
-                    background: FlareThemeTokens.robot,
-                    onTap: () {
-                      _closeMoreGrid();
-                      _snackComingSoon(_c.topic);
-                    },
-                  ),
-                  _moreGridTileAligned(
-                    label: _c.notification,
-                    icon: Icons.notifications_none_rounded,
-                    background: FlareThemeTokens.warning,
-                    onTap: () {
-                      _closeMoreGrid();
-                      _snackComingSoon(_c.notification);
-                    },
-                  ),
-                  _moreGridTileAligned(
-                    label: _c.announcement,
-                    icon: Icons.campaign_outlined,
-                    background: FlareThemeTokens.important,
-                    onTap: () {
-                      _closeMoreGrid();
-                      _snackComingSoon(_c.announcement);
-                    },
-                  ),
-                ],
-              ),
-            )
-          : const SizedBox(width: double.infinity),
-    );
-  }
-
-  /// 下行：六枚工具均分整行（表情 / @ / 语音 / 图片 / Aa / 更多）。
-  Widget _buildBottomToolbar() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.only(top: 4, bottom: 0),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: FlareThemeTokens.borderSecondary.withValues(alpha: 0.95),
-            width: 0.5,
-          ),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Center(
-              child: _toolbarIconButton(
-                icon: Icons.emoji_emotions_outlined,
-                tooltip: _c.emojiSticker,
-                onPressed: () {
-                  _closeMoreGrid();
-                  unawaited(_openEmojiStickerPanel());
-                },
-              ),
-            ),
-          ),
-          Expanded(
-            child: Center(
-              child: _toolbarIconButton(
-                icon: Icons.alternate_email,
-                tooltip: _c.mention,
-                onPressed: () => _insertAtCursor('@'),
-              ),
-            ),
-          ),
-          Expanded(
-            child: Center(
-              child: _toolbarIconButton(
-                icon: Icons.mic_none_outlined,
-                tooltip: _c.voice,
-                onPressed: () {
-                  _closeMoreGrid();
-                  _pickMedia(ComposerPickMediaKind.audio);
-                },
-              ),
-            ),
-          ),
-          Expanded(
-            child: Center(
-              child: _toolbarIconButton(
-                icon: Icons.image_outlined,
-                tooltip: _c.image,
-                onPressed: () {
-                  _closeMoreGrid();
-                  _pickMedia(ComposerPickMediaKind.image);
-                },
-              ),
-            ),
-          ),
-          Expanded(
-            child: Center(
-              child: _toolbarIconButton(
-                icon: Icons.text_fields_rounded,
-                tooltip: _c.richText,
-                selected: _richTextEnabled,
-                onPressed: _toggleRichText,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Center(
-              child: _toolbarIconButton(
-                icon: _moreGridOpen ? Icons.close_outlined : Icons.add_outlined,
-                tooltip: _moreGridOpen ? _c.collapse : _c.more,
-                onPressed: _toggleMoreGrid,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 默认：上行输入 + 下行工具栏；发送用 IME 发送键 / onSubmitted 与硬键盘回车。
-  Widget _buildMobileCompactRow() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildInputRow(minLines: 1, maxLines: 5),
-        _buildRichFormatStrip(),
-        const SizedBox(height: 8),
-        _buildBottomToolbar(),
-        _buildMoreFeatureGrid(),
-      ],
-    );
-  }
-
-  /// 多行：同上；换行用 Shift+回车，发送用回车 / 键盘发送键。
-  Widget _buildStackBody() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildInputRow(minLines: 1, maxLines: 8),
-        _buildRichFormatStrip(),
-        const SizedBox(height: 8),
-        _buildBottomToolbar(),
-        _buildMoreFeatureGrid(),
-      ],
-    );
+    return true;
   }
 
   @override
   Widget build(BuildContext context) {
-    final showReply = widget.replyQuote != null && widget.replyQuote!.isVisible;
-    final stack = _isStackLayout;
-
-    return Material(
-      color: FlareThemeTokens.bgSecondary,
-      elevation: 8,
-      shadowColor: Colors.black.withValues(alpha: 0.06),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        side: BorderSide(color: FlareThemeTokens.borderSecondary),
+    ref.watch(flareMessagesProvider);
+    return FlareComposer(
+      key: _kitKey,
+      conversationKey: widget.conversationId,
+      controller: _controller,
+      focusNode: _focusNode,
+      specialTextSpanBuilder: ComposerEmojiSpanBuilder(
+        inlineSize: 22,
+        localeTag: Localizations.maybeLocaleOf(context)?.toLanguageTag(),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(8, showReply ? 8 : 10, 8, stack ? 4 : 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (showReply)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: ComposerReplyStrip(
-                    quote: widget.replyQuote!,
-                    onClear: widget.onClearReply,
-                    previewWarn: _replyPreviewWarn,
-                  ),
-                ),
-              stack ? _buildStackBody() : _buildMobileCompactRow(),
-              if (stack && _controller.text.trim().isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    _c.multilineHint,
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: FlareThemeTokens.textSecondary.withValues(
-                        alpha: 0.9,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
+      placeholder: _effectiveHint,
+      disabled: widget.disabled,
+      maxLength: widget.maxLength,
+      enableVoice: widget.onVoiceSend != null,
+      onVoiceSend: widget.onVoiceSend,
+      replyTo: widget.replyQuote == null
+          ? null
+          : FlareReplyTarget(
+              senderName: widget.replyQuote!.senderName,
+              summary: widget.replyQuote!.preview,
+            ),
+      onCancelReply: widget.onClearReply,
+      onTyping: _onTextChanged,
+      onSend: _submit,
+      onSendRich: (source) {
+        _cancelPendingDraftSave();
+        _setTyping(false);
+        ref
+            .read(chatOutboundProvider(widget.conversationId).notifier)
+            .dispatch(
+              ChatOutboundSendRichDoc(
+                format: ChatRichDocInputFormat.markdown,
+                source: source,
+              ),
+            );
+      },
+      onEmoji: () => unawaited(_openEmojiStickerPanel()),
+      onImage: () => _pickMedia(ComposerPickMediaKind.image),
+      actions: [
+        FlareComposerAction(id: 'file', label: _c.file, icon: 'file'),
+        FlareComposerAction(id: 'video', label: _c.video, icon: 'video'),
+        FlareComposerAction(
+          id: 'location',
+          label: _c.location,
+          icon: 'location',
         ),
-      ),
+        FlareComposerAction(id: 'contactCard', label: _c.contact, icon: 'card'),
+        FlareComposerAction(
+          id: 'schedule',
+          label: _c.schedule,
+          icon: 'calendar',
+        ),
+        FlareComposerAction(id: 'task', label: _c.task, icon: 'check'),
+      ],
+      onAction: (action) {
+        if (action.id == 'file') {
+          _pickMedia(ComposerPickMediaKind.file);
+          return;
+        }
+        if (action.id == 'video') {
+          _pickMedia(ComposerPickMediaKind.video);
+          return;
+        }
+        final kind = ChatBusinessMessageKind.values.byName(action.id);
+        ref
+            .read(chatOutboundProvider(widget.conversationId).notifier)
+            .dispatch(ChatOutboundRequestBusinessMessage(kind));
+      },
     );
   }
 }

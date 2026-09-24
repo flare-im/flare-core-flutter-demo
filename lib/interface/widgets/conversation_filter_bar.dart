@@ -17,7 +17,10 @@ class ConversationFilterBar extends ConsumerWidget {
     final active = ref.watch(conversationFilterProvider);
     final c = ref.watch(flareMessagesProvider).conversation;
     final options = [
-      FlareFilterTabOption(value: ConversationFilter.all.name, label: c.filterAll),
+      FlareFilterTabOption(
+        value: ConversationFilter.all.name,
+        label: c.filterAll,
+      ),
       FlareFilterTabOption(
         value: ConversationFilter.unread.name,
         label: c.filterUnread,
