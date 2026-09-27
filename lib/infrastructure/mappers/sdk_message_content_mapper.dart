@@ -97,6 +97,13 @@ class SdkMessageContentMapper {
         return ImageContent(
           url: resolved,
           localPath: mediaId,
+          fileId: _storedMediaId(
+            _prefer([
+              _str(src?['imageId']),
+              _str(src?['uuid']),
+              _str(src?['fileId']),
+            ]),
+          ),
           width:
               (src?['width'] as num?)?.toInt() ??
               (thumb?['width'] as num?)?.toInt(),
@@ -133,6 +140,7 @@ class SdkMessageContentMapper {
         return VideoContent(
           url: url,
           localPath: videoId,
+          fileId: _storedMediaId(videoId),
           thumbnailUrl: _prefer([_str(cover?['url']), _str(cover?['imageId'])]),
           width: (src?['width'] as num?)?.toInt(),
           height: (src?['height'] as num?)?.toInt(),
@@ -166,6 +174,7 @@ class SdkMessageContentMapper {
         return FileContent(
           url: _prefer([content['url'] as String?, fileId]),
           localPath: fileId,
+          fileId: _storedMediaId(_str(content['fileId'])),
           filename: fileName,
           size: (content['fileSize'] as num?)?.toInt(),
         );
@@ -397,6 +406,26 @@ class SdkMessageContentMapper {
   static Map<dynamic, dynamic>? _asObjectMap(dynamic v) => v is Map ? v : null;
 
   static String _str(dynamic v) => v is String ? v : '';
+
+  /// 核心里存的媒体 id；上传完成前核心把本机路径、`data:` 或网址放在同一个字段里，
+  /// 那些不是 id（按 id 去缓存 / 网关取会失败），返回 null。
+  static String? _storedMediaId(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return null;
+    final lower = value.toLowerCase();
+    if (lower.startsWith('http://') ||
+        lower.startsWith('https://') ||
+        lower.startsWith('file:') ||
+        lower.startsWith('data:') ||
+        lower.startsWith('blob:') ||
+        lower.startsWith('content:') ||
+        value.startsWith('/') ||
+        value.startsWith(r'\') ||
+        RegExp(r'^[a-zA-Z]:[\\/]').hasMatch(value)) {
+      return null;
+    }
+    return value;
+  }
 
   static String _prefer(List<String?> values) {
     for (final v in values) {

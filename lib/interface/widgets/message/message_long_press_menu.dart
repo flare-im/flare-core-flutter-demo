@@ -80,6 +80,7 @@ Future<void> showMessageLongPressMenu(
   VoidCallback? onPinForSelf,
   required String pinLabel,
   VoidCallback? onCopy,
+  VoidCallback? onSave,
   VoidCallback? onEdit,
   Future<void> Function()? onDeleteForSelf,
   Future<void> Function()? onDeleteForEveryone,
@@ -126,6 +127,13 @@ Future<void> showMessageLongPressMenu(
       ),
     if (onCopy != null)
       ui.FlareMessageMenuEntry(id: 'copy', label: i18n.menuCopy, icon: 'copy'),
+    // 图片、视频、文件存进「下载位置」；与组件库标准动作同 id、同图标、同位置（复制之后）。
+    if (onSave != null)
+      ui.FlareMessageMenuEntry(
+        id: 'save',
+        label: i18n.menuSave,
+        icon: 'download',
+      ),
     if (onEdit != null)
       ui.FlareMessageMenuEntry(id: 'edit', label: i18n.menuEdit, icon: 'edit'),
     if (onDeleteForSelf != null ||
@@ -174,6 +182,8 @@ Future<void> showMessageLongPressMenu(
       onPinForSelf?.call();
     case 'copy':
       onCopy?.call();
+    case 'save':
+      onSave?.call();
     case 'edit':
       onEdit?.call();
     case 'delete':

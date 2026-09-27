@@ -6,15 +6,21 @@ import 'package:flare_im_ui/flare_im_ui.dart';
 import 'package:flutter/material.dart';
 
 /// Thin platform-image adapter for the design kit's full-screen preview.
+/// [imageUrl] is an http(s) address or a file on this device (the copy the
+/// host resolved through the SDK media cache). The kit draws its download key
+/// only with [onDownload].
 abstract final class ImagePreviewModal {
   static Future<void> show(
     BuildContext context, {
     required String imageUrl,
+    VoidCallback? onDownload,
   }) async {
     if (!isHttpOrHttpsUrl(imageUrl) && !isLocalFileLikePath(imageUrl)) return;
     await FlareImagePreview.present(
       context,
       imageSrc: imageUrl,
+      allowLocalFile: isLocalFileLikePath(imageUrl),
+      onDownload: onDownload,
       imageBuilder: (context, source) {
         if (isHttpOrHttpsUrl(source)) {
           return CachedNetworkImage(

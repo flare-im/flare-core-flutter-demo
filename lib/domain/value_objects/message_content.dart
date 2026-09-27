@@ -64,6 +64,10 @@ class RichDocContent extends MessageContent {
 class ImageContent extends MessageContent {
   final String url;
   final String? localPath;
+
+  /// 核心里存的图片 id（`source.imageId`）：显示经 SDK 缓存解析、保存到本机都按它取。
+  /// 上传完成前没有（那时只有本机文件）。
+  final String? fileId;
   final int? width;
   final int? height;
   final int? size;
@@ -74,6 +78,7 @@ class ImageContent extends MessageContent {
   const ImageContent({
     required this.url,
     this.localPath,
+    this.fileId,
     this.width,
     this.height,
     this.size,
@@ -91,7 +96,15 @@ class ImageContent extends MessageContent {
   String get contentType => 'image';
 
   @override
-  List<Object?> get props => [url, localPath, width, height, size, description];
+  List<Object?> get props => [
+    url,
+    localPath,
+    fileId,
+    width,
+    height,
+    size,
+    description,
+  ];
 }
 
 /// 多图（相册），与 SDK `Elem::ImageGroup` / `contentType: image_group`（core 标准枚举值）对应。
@@ -119,6 +132,9 @@ class ImageGroupContent extends MessageContent {
 class VideoContent extends MessageContent {
   final String url;
   final String? localPath;
+
+  /// 核心里存的视频 id（`videoId`）：保存到本机按它取。
+  final String? fileId;
   final String? thumbnailUrl;
   final int? width;
   final int? height;
@@ -131,6 +147,7 @@ class VideoContent extends MessageContent {
   const VideoContent({
     required this.url,
     this.localPath,
+    this.fileId,
     this.thumbnailUrl,
     this.width,
     this.height,
@@ -153,6 +170,7 @@ class VideoContent extends MessageContent {
   List<Object?> get props => [
     url,
     localPath,
+    fileId,
     thumbnailUrl,
     width,
     height,
@@ -190,12 +208,16 @@ class AudioContent extends MessageContent {
 class FileContent extends MessageContent {
   final String url;
   final String? localPath;
+
+  /// 核心里存的文件 id（`fileId`）：保存到本机按它取。
+  final String? fileId;
   final String filename;
   final int? size;
 
   const FileContent({
     required this.url,
     this.localPath,
+    this.fileId,
     required this.filename,
     this.size,
   });
@@ -207,7 +229,7 @@ class FileContent extends MessageContent {
   String get contentType => 'file';
 
   @override
-  List<Object?> get props => [url, localPath, filename, size];
+  List<Object?> get props => [url, localPath, fileId, filename, size];
 }
 
 /// 位置消息内容

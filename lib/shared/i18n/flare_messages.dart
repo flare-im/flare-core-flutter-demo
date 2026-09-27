@@ -202,6 +202,7 @@ final class FlareChatCopy {
   String get menuMark => _m.t('chat.menuMark');
   String get menuCopy => _m.t('chat.menuCopy');
   String get menuEdit => _m.t('chat.menuEdit');
+  String get menuSave => _m.t('chat.menuSave');
   String get menuCollapse => _m.t('chat.menuCollapse');
   String get menuDelete => _m.t('chat.menuDelete');
   String get menuDeleteMessage => _m.t('chat.menuDeleteMessage');
@@ -348,6 +349,12 @@ final class FlareChatCopy {
   String get cannotOpenMap => _m.t('chat.cannotOpenMap');
   String get cannotOpenLink => _m.t('chat.cannotOpenLink');
   String get attachment => _m.t('chat.attachment');
+
+  // 保存到本机
+  String get saving => _m.t('chat.saving');
+  String savedTo(String location) => _fmt('chat.savedTo', {'location': location});
+  String get saveFailed => _m.t('chat.saveFailed');
+  String get showInFolder => _m.t('chat.showInFolder');
 
   // 内容占位标签
   String get richTextTag => _m.t('chat.richTextTag');
@@ -516,6 +523,19 @@ final class FlareSettingsCopy {
   String get themeSystem => _m.t('settings.themeSystem');
   String get themeLight => _m.t('settings.themeLight');
   String get themeDark => _m.t('settings.themeDark');
+  String get storage => _m.t('settings.storage');
+  String get downloadLocation => _m.t('settings.downloadLocation');
+  String get downloadLocationChange => _m.t('settings.downloadLocationChange');
+  String get downloadLocationReset => _m.t('settings.downloadLocationReset');
+  String get downloadLocationFilesApp => _m.t('settings.downloadLocationFilesApp');
+  String get downloadLocationUnwritable => _m.t('settings.downloadLocationUnwritable');
+  String get downloadLocationUnavailable => _m.t('settings.downloadLocationUnavailable');
+  String get mediaCache => _m.t('settings.mediaCache');
+  String get notMeasured => _m.t('settings.notMeasured');
+  String get clearCache => _m.t('settings.clearCache');
+  String get clearCacheConfirm => _m.t('settings.clearCacheConfirm');
+  String get cacheCleared => _m.t('settings.cacheCleared');
+  String get clearCacheFailed => _m.t('settings.clearCacheFailed');
 }
 
 final class FlareSdkLabCopy {
@@ -790,6 +810,7 @@ const _catalog = <FlareLocale, Map<String, dynamic>>{
       'menuMark': '标记',
       'menuCopy': '复制',
       'menuEdit': '编辑',
+      'menuSave': '保存',
       'menuCollapse': '收起',
       'menuDelete': '删除',
       'menuDeleteMessage': '删除消息',
@@ -916,6 +937,10 @@ const _catalog = <FlareLocale, Map<String, dynamic>>{
       'cannotOpenMap': '无法打开地图',
       'cannotOpenLink': '无法打开链接',
       'attachment': '附件',
+      'saving': '正在保存…',
+      'savedTo': '已保存到 {location}',
+      'saveFailed': '没有保存成功，请重试',
+      'showInFolder': '在文件夹中显示',
       'richTextTag': '[富文本]',
       'topicTagPlain': '[话题]',
       'topicTag': '[话题] {value}',
@@ -1046,6 +1071,19 @@ const _catalog = <FlareLocale, Map<String, dynamic>>{
       'themeSystem': '跟随系统',
       'themeLight': '浅色',
       'themeDark': '深色',
+      'storage': '存储',
+      'downloadLocation': '下载位置',
+      'downloadLocationChange': '更改位置',
+      'downloadLocationReset': '恢复默认位置',
+      'downloadLocationFilesApp': '「文件」App › 本应用 › flare',
+      'downloadLocationUnwritable': '这个文件夹不能写入，请换一个',
+      'downloadLocationUnavailable': '暂时读不到下载位置，请稍后再试',
+      'mediaCache': '图片与文件缓存',
+      'notMeasured': '未统计',
+      'clearCache': '清除缓存',
+      'clearCacheConfirm': '清除后，看过的图片需要重新下载。',
+      'cacheCleared': '缓存已清除',
+      'clearCacheFailed': '缓存没有清除，请重试',
     },
     'sdkLab': {
       'title': 'SDK 能力中心',
@@ -1309,6 +1347,7 @@ const _catalog = <FlareLocale, Map<String, dynamic>>{
       'menuMark': 'Flag',
       'menuCopy': 'Copy',
       'menuEdit': 'Edit',
+      'menuSave': 'Save',
       'menuCollapse': 'Collapse',
       'menuDelete': 'Delete',
       'menuDeleteMessage': 'Delete message',
@@ -1435,6 +1474,10 @@ const _catalog = <FlareLocale, Map<String, dynamic>>{
       'cannotOpenMap': "Can't open the map",
       'cannotOpenLink': "Can't open the link",
       'attachment': 'Attachment',
+      'saving': 'Saving…',
+      'savedTo': 'Saved to {location}',
+      'saveFailed': 'Could not save. Try again.',
+      'showInFolder': 'Show in folder',
       'richTextTag': '[Rich text]',
       'topicTagPlain': '[Topic]',
       'topicTag': '[Topic] {value}',
@@ -1565,6 +1608,19 @@ const _catalog = <FlareLocale, Map<String, dynamic>>{
       'themeSystem': 'System',
       'themeLight': 'Light',
       'themeDark': 'Dark',
+      'storage': 'Storage',
+      'downloadLocation': 'Download location',
+      'downloadLocationChange': 'Change location',
+      'downloadLocationReset': 'Use the default location',
+      'downloadLocationFilesApp': 'Files app › this app › flare',
+      'downloadLocationUnwritable': 'This folder cannot be written to. Choose another one.',
+      'downloadLocationUnavailable': 'The download location is not available yet. Try again later.',
+      'mediaCache': 'Image and file cache',
+      'notMeasured': 'Not measured',
+      'clearCache': 'Clear cache',
+      'clearCacheConfirm': 'Pictures you have seen will be downloaded again.',
+      'cacheCleared': 'Cache cleared',
+      'clearCacheFailed': 'Could not clear the cache. Try again.',
     },
     'sdkLab': {
       'title': 'SDK Lab',

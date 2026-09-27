@@ -10,17 +10,21 @@ import 'package:video_player/video_player.dart';
 class VideoPlayerModal {
   VideoPlayerModal._();
 
+  /// The kit player draws its download key (top right) only with
+  /// [onDownload].
   static Future<void> show(
     BuildContext context, {
     required String videoUrl,
     String? posterUrl,
     bool audioOnly = false,
+    VoidCallback? onDownload,
     VideoPlayerController Function(String)? controllerFactory,
   }) => ui.FlareVideoPlayer.present(
     context,
     videoSrc: videoUrl,
     poster: posterUrl,
     title: audioOnly ? '语音' : '视频',
+    onDownload: onDownload,
     playerBuilder: (_, source) => _PlatformPlayer(
       source: source,
       audioOnly: audioOnly,

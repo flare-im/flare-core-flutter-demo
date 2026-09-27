@@ -519,14 +519,18 @@ final class SdkWrapper {
     );
   }
 
+  /// 本地缓存有就给本机路径（`source: local`, `localPath`），否则给短时地址
+  /// （`remote.url`）；[autoCache] 时核心再在后台把没缓存的文件存进本地缓存。
   Future<Map<String, dynamic>> resolveMediaAccess(
     String fileId, {
     int expiresIn = 3600,
+    bool autoCache = false,
   }) async {
     return _dynamicMap(
       await _client.media.resolveMediaAccess({
         'fileId': fileId,
         'expiresIn': expiresIn,
+        if (autoCache) 'autoCache': true,
       }),
     );
   }
@@ -575,6 +579,43 @@ final class SdkWrapper {
 
   Future<bool> cancelUserFileDownload(String downloadKey) {
     return _client.media.cancelUserFileDownload({'downloadKey': downloadKey});
+  }
+
+  /// 「下载位置」：`{directory, defaultDirectory, customDirectory?, isCustom, subfolder}`。
+  Future<Map<String, dynamic>> getUserDownloadDirectory() async {
+    return _dynamicMap(await _client.media.getUserDownloadDirectory());
+  }
+
+  /// 改「下载位置」；[directory] 为 null 回到平台默认。文件夹不能写时核心报错。
+  Future<Map<String, dynamic>> setUserDownloadDirectory(
+    String? directory,
+  ) async {
+    return _dynamicMap(
+      await _client.media.setUserDownloadDirectory({'directory': directory}),
+    );
+  }
+
+  /// 保存到「下载位置」。来源优先级（核心）：[sourcePath] → 本地媒体缓存（按 [fileId]）
+  /// → [sourceUrl] → [fileId]（经网关取附件直链）。[fileName] 没有扩展名时核心按类型补。
+  /// 返回 `{path, directory, fileName, sizeBytes, fromCache, downloadKey}`。
+  Future<Map<String, dynamic>> downloadToUserDirectory({
+    required String fileName,
+    String? fileId,
+    String? sourceUrl,
+    String? sourcePath,
+    String? downloadKey,
+    int expiresIn = 3600,
+  }) async {
+    return _dynamicMap(
+      await _client.media.downloadToUserDirectory({
+        'fileName': fileName,
+        'fileId': ?fileId,
+        'sourceUrl': ?sourceUrl,
+        'sourcePath': ?sourcePath,
+        'downloadKey': ?downloadKey,
+        'expiresIn': expiresIn,
+      }),
+    );
   }
 
   Future<String> downloadFileToDownloads({

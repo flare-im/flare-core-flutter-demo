@@ -1,11 +1,15 @@
 import 'package:flare_im/application/providers/locale_provider.dart';
-import 'package:flare_im/application/providers/sdk_provider.dart';
+import 'package:flare_im/application/providers/media_storage_provider.dart';
+import 'package:flare_im/application/providers/service_providers.dart';
 import 'package:flare_im/domain/entities/message.dart';
 import 'package:flare_im/domain/value_objects/conversation_type.dart';
+import 'package:flare_im/domain/value_objects/media_storage.dart';
 import 'package:flare_im/domain/value_objects/message_content.dart';
+import 'package:flare_im/infrastructure/media/network_image_policy.dart';
 import 'package:flare_im/interface/widgets/media_viewer/image_preview_modal.dart';
 import 'package:flare_im/interface/widgets/media_viewer/video_player_modal.dart';
 import 'package:flare_im/interface/widgets/message/message_long_press_menu.dart';
+import 'package:flare_im/interface/widgets/message/message_media_save.dart';
 import 'package:flare_im_ui/flare_im_ui.dart' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -61,8 +65,12 @@ class SdkMessageBubbleAdapter extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final i18n = ref.watch(flareMessagesProvider).chat;
-    final presentation = _toPresentation(message);
+    final presentation = _toPresentation(message, _pictureAccess(ref));
     final self = message.senderId == currentUserId;
+    final own = isOwnMessage(message, currentUserId);
+    final savable = messageMediaSavable(message, currentUserId: currentUserId);
+    void save() =>
+        saveMessageMedia(context, ref, message, currentUserId: currentUserId);
     return Column(
       crossAxisAlignment: self
           ? CrossAxisAlignment.end
@@ -93,6 +101,7 @@ class SdkMessageBubbleAdapter extends ConsumerWidget {
                   onPinForSelf: onPinForSelf,
                   pinLabel: pinToggleLabel,
                   onCopy: onCopy,
+                  onSave: savable ? save : null,
                   onEdit: onEdit,
                   onDeleteForSelf: onDeleteForSelf,
                   onDeleteForEveryone: onDeleteForEveryone,
@@ -100,13 +109,26 @@ class SdkMessageBubbleAdapter extends ConsumerWidget {
                   i18n: i18n,
                 ),
           onMediaAction: (_, content) async {
-            if (content is ui.FlareImageContent && content.url.isNotEmpty) {
-              ImagePreviewModal.show(context, imageUrl: content.url);
+            if (content is ui.FlareImageContent) {
+              // 画面上的那一份：宿主经 SDK 缓存解析出的本机副本，否则网址。
+              final local = content.localPath?.trim() ?? '';
+              final source = local.isNotEmpty
+                  ? local
+                  : _openableAddress(content.url, own);
+              if (source.isEmpty) return;
+              await ImagePreviewModal.show(
+                context,
+                imageUrl: source,
+                onDownload: savable ? save : null,
+              );
             } else if (content is ui.FlareVideoContent) {
+              final source = _openableAddress(content.url, own);
+              if (source.isEmpty) return;
               await VideoPlayerModal.show(
                 context,
-                videoUrl: content.url,
+                videoUrl: source,
                 posterUrl: content.poster,
+                onDownload: savable ? save : null,
               );
             } else if (content is ui.FlareAudioContent) {
               await VideoPlayerModal.show(
@@ -115,45 +137,8 @@ class SdkMessageBubbleAdapter extends ConsumerWidget {
                 audioOnly: true,
               );
             } else if (content is ui.FlareFileContent) {
-              try {
-                final source = Uri.parse(content.url);
-                final path = await ref
-                    .read(sdkWrapperProvider)
-                    .downloadFileToDownloads(
-                      downloadKey: presentation.id,
-                      displayFileName: content.name,
-                      sourcePath: source.scheme == 'file'
-                          ? source.toFilePath()
-                          : source.scheme.isEmpty
-                          ? content.url
-                          : null,
-                      sourceUrl:
-                          source.scheme == 'http' || source.scheme == 'https'
-                          ? content.url
-                          : null,
-                    );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: ui.FlareToast(
-                        message: '已保存：$path',
-                        variant: ui.FlareToastVariant.success,
-                      ),
-                    ),
-                  );
-                }
-              } catch (_) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: ui.FlareToast(
-                        message: '文件下载失败，请重试',
-                        variant: ui.FlareToastVariant.error,
-                      ),
-                    ),
-                  );
-                }
-              }
+              // 点文件就存进「下载位置」（核心按消息里存的文件 id 取）。
+              if (savable) save();
             }
           },
           onResend: onResend == null ? null : (_) => onResend!(),
@@ -187,7 +172,19 @@ class SdkMessageBubbleAdapter extends ConsumerWidget {
     );
   }
 
-  ui.FlareMessageData _toPresentation(Message value) {
+  /// 时间线上这张图从哪里画（按核心里存的 id 经 SDK 媒体缓存解析）：已经知道的
+  /// 答案立刻用，没有时等 [pictureAccessProvider]；都没有时画消息自带的地址。
+  /// 只有带存储 id 的图片才去问，别的消息不碰 SDK。
+  PictureAccess? _pictureAccess(WidgetRef ref) {
+    final content = message.content;
+    if (message.isRecalled || content is! ImageContent) return null;
+    final fileId = content.fileId?.trim() ?? '';
+    if (fileId.isEmpty) return null;
+    return ref.watch(pictureAccessProvider(fileId)).valueOrNull ??
+        ref.read(mediaStorageServiceProvider).peekPicture(fileId);
+  }
+
+  ui.FlareMessageData _toPresentation(Message value, PictureAccess? picture) {
     final senderName = value.senderDisplayName.trim().isNotEmpty
         ? value.senderDisplayName.trim()
         : value.senderName.trim().isNotEmpty
@@ -206,7 +203,7 @@ class SdkMessageBubbleAdapter extends ConsumerWidget {
           : value.senderAvatar,
       content: value.isRecalled
           ? const ui.FlareNotificationContent('Message recalled')
-          : _toContent(value.content),
+          : _toContent(value.content, picture),
       timeLabel:
           '${value.timestamp.hour.toString().padLeft(2, '0')}:${value.timestamp.minute.toString().padLeft(2, '0')}',
       status: switch (value.status) {
@@ -220,7 +217,10 @@ class SdkMessageBubbleAdapter extends ConsumerWidget {
     );
   }
 
-  ui.FlareMessageContent _toContent(MessageContent content) {
+  ui.FlareMessageContent _toContent(
+    MessageContent content,
+    PictureAccess? picture,
+  ) {
     return switch (content) {
       TextContent(:final text) => ui.FlareTextContent(text),
       ImageContent(
@@ -231,7 +231,11 @@ class SdkMessageBubbleAdapter extends ConsumerWidget {
         :final description,
       ) =>
         ui.FlareImageContent(
-          url: url.isNotEmpty ? url : localPath ?? '',
+          url:
+              _nonEmpty(picture?.url) ??
+              (url.isNotEmpty ? url : localPath ?? ''),
+          // 只放宿主经 SDK 缓存解析出的本机副本，绝不取消息内容里的路径。
+          localPath: _nonEmpty(picture?.localPath),
           width: width?.toDouble(),
           height: height?.toDouble(),
           alt: description,
@@ -338,4 +342,17 @@ class SdkMessageBubbleAdapter extends ConsumerWidget {
       ),
     };
   }
+}
+
+/// 能打开的地址：别人消息里的本机路径是对方写的字，不打开这台设备上的文件；
+/// 自己还在上传的消息才会指向本机文件。
+String _openableAddress(String address, bool ownMessage) {
+  final value = address.trim();
+  if (ownMessage || !isLocalFileLikePath(value)) return value;
+  return '';
+}
+
+String? _nonEmpty(String? value) {
+  final trimmed = value?.trim() ?? '';
+  return trimmed.isEmpty ? null : trimmed;
 }
