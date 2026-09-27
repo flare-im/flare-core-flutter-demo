@@ -29,11 +29,19 @@ Future<void> showDeleteMessageChoiceDialog(
   final canDeleteForEveryone =
       showDeleteForEveryone && onDeleteForEveryone != null;
   if (onDeleteForSelf == null && !canDeleteForEveryone) return;
-  await showDialog<void>(
-    context: context,
-    builder: (dialogContext) => ui.FlareDialog(
-      title: Text(i18n.menuDeleteMessage),
-      content: Column(
+  // 组件库的居中模态框(FlareModal):选项是正文,取消在它的底部按钮行。
+  await ui.FlareModal.show<void>(
+    context,
+    builder: (dialogContext) => ui.FlareModal(
+      title: i18n.menuDeleteMessage,
+      footer: [
+        ui.FlareButton(
+          label: i18n.cancel,
+          variant: ui.FlareButtonVariant.secondary,
+          onPressed: () => Navigator.of(dialogContext).pop(),
+        ),
+      ],
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (onDeleteForSelf != null)
@@ -58,12 +66,6 @@ Future<void> showDeleteMessageChoiceDialog(
             ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(dialogContext).pop(),
-          child: Text(i18n.cancel),
-        ),
-      ],
     ),
   );
 }

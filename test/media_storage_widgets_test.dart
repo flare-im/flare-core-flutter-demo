@@ -98,6 +98,45 @@ void main() {
       expect(find.text('缓存已清除'), findsOneWidget);
     });
 
+    testWidgets('on a wide window the storage overlays are kit Modals, and '
+        'the location sheet is named', (tester) async {
+      final semantics = tester.ensureSemantics();
+      final repo = _StorageRepository(location: _defaultLocation);
+      await _pumpSettings(tester, repo, size: const Size(1280, 900));
+      await tester.tap(find.text('下载位置'));
+      await tester.pumpAndSettle();
+      expect(find.byType(FlareModal), findsOneWidget);
+      expect(
+        tester.getSemantics(
+          find
+              .descendant(
+                of: find.byType(FlareModal),
+                matching: find.bySemanticsLabel('下载位置'),
+              )
+              .first,
+        ),
+        isSemantics(label: '下载位置', namesRoute: true),
+      );
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      expect(find.byType(FlareModal), findsNothing);
+
+      await tester.tap(find.text('图片与文件缓存'));
+      await tester.pumpAndSettle();
+      expect(
+        find.ancestor(
+          of: find.byType(FlareDangerConfirm),
+          matching: find.byType(FlareModal),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(_inConfirm('清除缓存').last);
+      await tester.pumpAndSettle();
+      expect(repo.clears, 1);
+      expect(find.byType(FlareModal), findsNothing);
+      semantics.dispose();
+    });
+
     testWidgets('a cache that could not be cleared says so and can be '
         'retried', (tester) async {
       final repo = _StorageRepository(location: _defaultLocation)
@@ -285,8 +324,12 @@ Finder _inConfirm(String text) => find.descendant(
   matching: find.text(text),
 );
 
-Future<void> _pumpSettings(WidgetTester tester, _StorageRepository repo) async {
-  tester.view.physicalSize = const Size(480, 1400);
+Future<void> _pumpSettings(
+  WidgetTester tester,
+  _StorageRepository repo, {
+  Size size = const Size(480, 1400),
+}) async {
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(

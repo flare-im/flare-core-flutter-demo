@@ -272,19 +272,16 @@ class ConversationItem extends ConsumerWidget {
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
     final messages = ref.read(flareMessagesProvider);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => FlareDangerConfirm(
-        title: messages.t('conversation.deleteConv'),
-        description: messages.t('conversation.deleteConfirm'),
-        target: _lineTitle(conversation, messages),
-        confirmText: messages.t('conversation.confirm'),
-        cancelText: messages.t('conversation.cancel'),
-        onConfirm: () => Navigator.pop(dialogContext, true),
-        onCancel: () => Navigator.pop(dialogContext, false),
-      ),
+    // 组件库的危险确认呈现器:手机上是底部面板,宽屏交给居中模态框。
+    final confirmed = await FlareDangerConfirm.show(
+      context,
+      title: messages.t('conversation.deleteConv'),
+      description: messages.t('conversation.deleteConfirm'),
+      target: _lineTitle(conversation, messages),
+      confirmText: messages.t('conversation.confirm'),
+      cancelText: messages.t('conversation.cancel'),
     );
-    if (confirmed == true && context.mounted) {
+    if (confirmed && context.mounted) {
       await ref
           .read(imOutboundProvider)
           .conversationDelete(conversation.conversationId);

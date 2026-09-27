@@ -161,8 +161,12 @@ class SettingsScreen extends ConsumerWidget {
     }
     if (!context.mounted) return;
     ref.invalidate(downloadLocationProvider);
+    // 短任务面:手机上是底部面板,宽屏交给居中模态框(auto)。面板里第一行就是
+    // 「下载位置」分组标题,所以名称只给读屏,不再画一遍。
     await FlareBottomSheet.show<void>(
       context,
+      title: settings.downloadLocation,
+      titleHidden: true,
       builder: (sheet) => Padding(
         padding: const EdgeInsets.fromLTRB(
           FlareSizes.spacingLg,
