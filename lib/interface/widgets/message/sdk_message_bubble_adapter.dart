@@ -209,7 +209,8 @@ class SdkMessageBubbleAdapter extends ConsumerWidget {
       status: switch (value.status) {
         MessageStatus.sending => ui.FlareMessageDeliveryStatus.sending,
         MessageStatus.sent => ui.FlareMessageDeliveryStatus.sent,
-        MessageStatus.delivered => ui.FlareMessageDeliveryStatus.delivered,
+        // The kit draws delivered as sent (a single check); read is the double.
+        MessageStatus.delivered => ui.FlareMessageDeliveryStatus.sent,
         MessageStatus.read => ui.FlareMessageDeliveryStatus.read,
         MessageStatus.failed => ui.FlareMessageDeliveryStatus.failed,
       },
