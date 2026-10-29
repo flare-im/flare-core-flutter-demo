@@ -565,7 +565,7 @@ class _CapabilitySection extends StatelessWidget {
           icon: Icons.extension_outlined,
           title: 'Optional Capability Surface',
           body:
-              'Call/SFU controls run through capability discovery first; unavailable runtimes return typed diagnostics instead of opening a call surface.',
+              'Capability dispatch runs through the core capability API; unavailable runtimes return typed diagnostics.',
         ),
         _ActionGrid(
           disabled: state.busy,
@@ -574,21 +574,6 @@ class _CapabilitySection extends StatelessWidget {
               icon: Icons.route_outlined,
               label: 'Dispatch Probe',
               onPressed: notifier.dispatchCapabilityProbe,
-            ),
-            _LabAction(
-              icon: Icons.add_moderator_outlined,
-              label: 'Grant Call',
-              onPressed: notifier.grantCallCapability,
-            ),
-            _LabAction(
-              icon: Icons.remove_moderator_outlined,
-              label: 'Revoke Call',
-              onPressed: notifier.revokeCallCapability,
-            ),
-            _LabAction(
-              icon: Icons.call_outlined,
-              label: 'Discover + Signal',
-              onPressed: notifier.sendCallSignalProbe,
             ),
           ],
         ),

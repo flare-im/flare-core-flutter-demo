@@ -63,8 +63,8 @@ adapter. Group conversations are messaging targets, not group administration.
 FFI artifact loading, Riverpod lifecycle, GoRouter navigation, file/photo
 picking, microphone permissions, local/authenticated media resolution and
 platform sharing stay in the host. `scripts/sync_ffi.sh` installs matching
-native SDK artifacts. The current call-kit dependency is a stub; it is not
-proof of working RTC. Do not advertise it as a verified calling capability.
+native SDK artifacts. This Core reference app ships no audio/video calls; calls
+are the managed `flare.call` plugin, integrated by product apps.
 
 ## Migration Status
 

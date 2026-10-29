@@ -1020,57 +1020,10 @@ class SdkLabNotifier extends StateNotifier<SdkLabSnapshot> {
     return runOperation('capability.dispatch', (sdk) async {
       final userId = _currentUserId();
       return sdk.dispatchCapability({
-        'capability': 'call',
-        'op': 'probe',
+        'capabilityId': 'sdk.lab.probe',
+        'payload': const <String, Object?>{},
         if (userId.isNotEmpty) 'userId': userId,
       });
-    });
-  }
-
-  Future<void> grantCallCapability() {
-    return runOperation('capability.grant', (sdk) async {
-      final userId = _requireCurrentUserId();
-      await sdk.grantCapability({'userId': userId, 'capability': 'call'});
-      return {'userId': userId, 'capability': 'call', 'granted': true};
-    });
-  }
-
-  Future<void> revokeCallCapability() {
-    return runOperation('capability.revoke', (sdk) async {
-      final userId = _requireCurrentUserId();
-      await sdk.revokeCapability({'userId': userId, 'capability': 'call'});
-      return {'userId': userId, 'capability': 'call', 'revoked': true};
-    });
-  }
-
-  Future<void> sendCallSignalProbe() {
-    return runOperation('capability.send_call_signal', (sdk) async {
-      final userId = _requireCurrentUserId();
-      final globalCapabilities = await sdk.listCapabilities();
-      final userCapabilities = await sdk.listUserCapabilities(userId);
-      final callAvailable =
-          _containsCapability(globalCapabilities, 'call') ||
-          _containsCapability(userCapabilities, 'call');
-      if (!callAvailable) {
-        return {
-          'targetUserId': userId,
-          'capability': 'call',
-          'available': false,
-          'globalCapabilities': globalCapabilities,
-          'userCapabilities': userCapabilities,
-        };
-      }
-      await sdk.sendCallSignal({
-        'targetUserId': userId,
-        'signalType': 'probe',
-        'payload': {'source': 'flutter_sdk_lab'},
-      });
-      return {
-        'targetUserId': userId,
-        'signalType': 'probe',
-        'capability': 'call',
-        'available': true,
-      };
     });
   }
 
@@ -1249,30 +1202,6 @@ SdkLabFailureEntry _failureFromError(String operation, Object error) {
     timestamp: DateTime.now(),
     cause: error.toString(),
   );
-}
-
-bool _containsCapability(Object? value, String capability) {
-  final target = capability.trim().toLowerCase();
-  if (target.isEmpty || value == null) return false;
-  if (value is String) return value.trim().toLowerCase() == target;
-  if (value is List) {
-    return value.any((item) => _containsCapability(item, target));
-  }
-  if (value is Map) {
-    for (final entry in value.entries) {
-      final key = entry.key?.toString().trim().toLowerCase() ?? '';
-      final entryValue = entry.value;
-      if (key == target) {
-        if (entryValue == false || entryValue == null) return false;
-        return true;
-      }
-      if (key == 'capability' || key == 'name' || key == 'id') {
-        if (_containsCapability(entryValue, target)) return true;
-      }
-      if (_containsCapability(entryValue, target)) return true;
-    }
-  }
-  return false;
 }
 
 Map<String, dynamic> _decodePayloadJson(String payloadJson) {
@@ -1582,6 +1511,10 @@ final class _SdkLabEventListener extends core.FlareImEventListener {
       _mutation('unpinned', event);
 
   @override
+  void onMessagePluginStateChanged(core.MessageMutationEvent event) =>
+      _mutation('plugin_state_changed', event);
+
+  @override
   void onNewConversation(core.ConversationEvent event) =>
       _conversation('created', event);
 
@@ -1628,11 +1561,18 @@ final class _SdkLabEventListener extends core.FlareImEventListener {
       _progress('media', 'download_progress', event);
 
   @override
-  void onCapabilityChanged(core.CapabilityEvent event) {
-    record('capability', event.name.name, {
-      'capability': event.capability,
-      'reason': event.reason,
+  void onPluginRealtime(core.PluginRealtimeEvent event) {
+    record('plugin', 'realtime', {
+      'pluginId': event.pluginId,
+      'packetType': event.packetType,
+      'conversationId': event.conversationId,
+      'deliveryId': event.deliveryId,
     });
+  }
+
+  @override
+  void onPluginCatalogChanged(core.PluginCatalogChangedEvent event) {
+    record('plugin', 'catalog_changed', {'version': event.version});
   }
 
   void _lifecycle(String name, core.LifecycleEvent event) {

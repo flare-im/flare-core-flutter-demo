@@ -1,6 +1,4 @@
-import 'package:flare_call_kit/flare_call_kit.dart';
 import 'package:flare_im/application/providers/app_theme_mode_provider.dart';
-import 'package:flare_im/application/providers/call_provider.dart';
 import 'package:flare_im/application/providers/locale_provider.dart';
 import 'package:flare_im/infrastructure/platform/app_platform_adapter.dart';
 import 'package:flare_im/interface/router/app_router.dart';
@@ -18,8 +16,6 @@ class FlareImApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
-    final callEnabled = ref.watch(callKitEnabledProvider);
-    final callController = ref.watch(callControllerProvider);
     final flareLocale = ref.watch(flareLocaleProvider);
     final themeMode = ref.watch(appThemeModeProvider);
 
@@ -41,16 +37,6 @@ class FlareImApp extends ConsumerWidget {
           theme: FlareImDesign.lightTheme(),
           darkTheme: FlareImDesign.darkTheme(),
           routerConfig: router,
-          builder: (context, child) {
-            final appChild = child ?? const SizedBox.shrink();
-            if (!callEnabled || callController == null) {
-              return appChild;
-            }
-            return FlareCallKitHost(
-              controller: callController,
-              child: appChild,
-            );
-          },
         ),
       ),
     );

@@ -190,12 +190,6 @@ final class SdkProgressUpdatedEvent {
 }
 
 @immutable
-final class SdkCapabilityUpdatedEvent {
-  const SdkCapabilityUpdatedEvent(this.payload);
-  final Map<String, dynamic> payload;
-}
-
-@immutable
 final class UserInfoUpdateEvent {
   const UserInfoUpdateEvent(this.user);
   final User user;
@@ -211,10 +205,4 @@ final class PresenceUpdateEvent {
 @immutable
 final class ConnectionChangedEvent {
   const ConnectionChangedEvent();
-}
-
-@immutable
-final class CallSignalEvent {
-  const CallSignalEvent(this.payload);
-  final Map<String, dynamic> payload;
 }

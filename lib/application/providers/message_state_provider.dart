@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flare_call_kit/flare_call_kit.dart';
 import 'package:flare_core_flutter_sdk/flare_core_flutter_sdk.dart' as core;
 import 'package:flare_im/application/bus/event_bus.dart';
 import 'package:flare_im/application/providers/auth_state_provider.dart';
@@ -95,10 +94,8 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
   }
 
   void _replaceWithCoreSnapshot(List<Message> snapshot) {
-    state = _normalizeCallSignalNotices(
-      _reapplyPeerReadToMessages(
-        _coreSnapshotPreservingUnresolvedLocal(snapshot),
-      ),
+    state = _reapplyPeerReadToMessages(
+      _coreSnapshotPreservingUnresolvedLocal(snapshot),
     );
     _cancelResolvedSendTracking();
   }
@@ -113,14 +110,12 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
         )
         .toList(growable: false);
     if (scopedOps.isEmpty) return;
-    state = _normalizeCallSignalNotices(
-      _reapplyPeerReadToMessages(
-        _timelineDisplayOrder(
-          _applyIndexedDeltaOps<Message>(
-            state,
-            scopedOps,
-            (item) => item.timelineKey.trim(),
-          ),
+    state = _reapplyPeerReadToMessages(
+      _timelineDisplayOrder(
+        _applyIndexedDeltaOps<Message>(
+          state,
+          scopedOps,
+          (item) => item.timelineKey.trim(),
         ),
       ),
     );
@@ -144,9 +139,7 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
       }
     }
 
-    state = _normalizeCallSignalNotices(
-      _reapplyPeerReadToMessages(_timelineDisplayOrder(next)),
-    );
+    state = _reapplyPeerReadToMessages(_timelineDisplayOrder(next));
     _cancelResolvedSendTracking();
   }
 
@@ -233,10 +226,8 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
       olderPage.add(m);
     }
     if (olderPage.isEmpty) return;
-    state = _normalizeCallSignalNotices(
-      _reapplyPeerReadToMessages(
-        _timelineDisplayOrder([...olderPage, ...state]),
-      ),
+    state = _reapplyPeerReadToMessages(
+      _timelineDisplayOrder([...olderPage, ...state]),
     );
     _cancelResolvedSendTracking();
   }
@@ -259,9 +250,7 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
     if (trimmed.isEmpty) return;
 
     final pending = _createLocalTextPending(trimmed);
-    state = _normalizeCallSignalNotices(
-      _reapplyPeerReadToMessages(_withPendingMessage(state, pending)),
-    );
+    state = _reapplyPeerReadToMessages(_withPendingMessage(state, pending));
     _watchSendTimeout(pending.clientMsgId);
 
     late final CreatedSdkMessage created;
@@ -343,8 +332,8 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
   void _replacePendingMessage(String pendingClientMsgId, Message replacement) {
     final pendingId = pendingClientMsgId.trim();
     if (pendingId.isEmpty) {
-      state = _normalizeCallSignalNotices(
-        _reapplyPeerReadToMessages(_withPendingMessage(state, replacement)),
+      state = _reapplyPeerReadToMessages(
+        _withPendingMessage(state, replacement),
       );
       return;
     }
@@ -355,12 +344,10 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
       replaced = true;
       return replacement;
     }).toList();
-    state = _normalizeCallSignalNotices(
-      _reapplyPeerReadToMessages(
-        replaced
-            ? _timelineDisplayOrder(next)
-            : _withPendingMessage(state, replacement),
-      ),
+    state = _reapplyPeerReadToMessages(
+      replaced
+          ? _timelineDisplayOrder(next)
+          : _withPendingMessage(state, replacement),
     );
   }
 
@@ -407,9 +394,7 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
     if (me.isNotEmpty && optimistic.senderId.isEmpty) {
       optimistic = optimistic.copyWith(senderId: me);
     }
-    state = _normalizeCallSignalNotices(
-      _reapplyPeerReadToMessages(_withPendingMessage(state, optimistic)),
-    );
+    state = _reapplyPeerReadToMessages(_withPendingMessage(state, optimistic));
     _watchSendTimeout(optimistic.clientMsgId);
 
     try {
@@ -1200,47 +1185,6 @@ class MessageListNotifier extends StateNotifier<List<Message>> {
       kinds: kinds,
       limit: limit,
     );
-  }
-
-  List<Message> _normalizeCallSignalNotices(List<Message> list) {
-    final seenSemantic = <String>{};
-    final modeHintsByCallId = <String, String>{};
-    final out = <Message>[];
-    for (final message in list) {
-      final content = message.content;
-      if (content is! NotificationContent ||
-          (content.notificationType ?? '').trim().toLowerCase() !=
-              'call_signal') {
-        out.add(message);
-        continue;
-      }
-      final data = Map<String, String>.from(content.data);
-      final callId = (data['callId'] ?? '').trim();
-      final mode = (data['mode'] ?? '').trim().toLowerCase();
-      if (callId.isNotEmpty) {
-        if (mode == 'audio' || mode == 'video') {
-          modeHintsByCallId[callId] = mode;
-        } else {
-          final hint = modeHintsByCallId[callId];
-          if (hint != null) {
-            data['mode'] = hint;
-          }
-        }
-      }
-      final meta = parseCallSignalNoticeUiMeta(
-        body: (content.body ?? '').trim(),
-        data: data,
-      );
-      final semanticKey = meta?.semanticKey;
-      if (semanticKey != null && semanticKey.isNotEmpty) {
-        if (!seenSemantic.add(semanticKey)) {
-          continue;
-        }
-      }
-      final normalized = content.copyWithData(data);
-      out.add(message.copyWith(content: normalized));
-    }
-    return out;
   }
 }
 

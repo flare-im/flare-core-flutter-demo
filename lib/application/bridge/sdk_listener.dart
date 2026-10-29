@@ -244,6 +244,19 @@ final class _AppSdkEventListener extends core.FlareImEventListener {
   }
 
   @override
+  void onMessagePluginStateChanged(core.MessageMutationEvent event) {
+    _fireConversationId(event.conversationId);
+  }
+
+  // This Core reference app hosts no plugin client packages, so plugin
+  // realtime packets and catalog changes have no consumer here.
+  @override
+  void onPluginRealtime(core.PluginRealtimeEvent event) {}
+
+  @override
+  void onPluginCatalogChanged(core.PluginCatalogChangedEvent event) {}
+
+  @override
   void onViewUpdated(core.ViewUpdate event) {
     final snapshot = event.snapshot;
     final delta = event.delta;
@@ -408,18 +421,6 @@ final class _AppSdkEventListener extends core.FlareImEventListener {
   void onDownloadProgress(core.ProgressEvent event) {
     imEventBus.fire(
       SdkProgressUpdatedEvent(SdkModelMapper.progressJsonFromCore(event)),
-    );
-  }
-
-  @override
-  void onCapabilityChanged(core.CapabilityEvent event) {
-    imEventBus.fire(
-      SdkCapabilityUpdatedEvent({
-        'type': 'capability',
-        'event': event.name.name,
-        'capability': event.capability,
-        'reason': event.reason,
-      }),
     );
   }
 

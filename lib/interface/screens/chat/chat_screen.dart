@@ -2,11 +2,9 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:extended_text_field/extended_text_field.dart';
-import 'package:flare_call_kit/flare_call_kit.dart';
 import 'package:flare_im/application/outbound/im_outbound_facade.dart';
 import 'package:flare_im/application/providers/active_chat_stack_provider.dart';
 import 'package:flare_im/application/providers/auth_state_provider.dart';
-import 'package:flare_im/application/providers/call_provider.dart';
 import 'package:flare_im/application/providers/chat_outbound_provider.dart';
 import 'package:flare_im/application/providers/conversation_state_provider.dart';
 import 'package:flare_im/application/providers/im_outbound_provider.dart';
@@ -1836,8 +1834,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
     final peerOnline = peerUserId.isEmpty
         ? null
         : ref.watch(userOnlineProvider(peerUserId));
-    final callEnabled = ref.watch(callKitEnabledProvider);
-    final callController = ref.watch(callControllerProvider);
     if (peerUserId.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_ensurePeerPresence(peerUserId));
@@ -1918,20 +1914,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
                   label: i18n.chat.searchMessages,
                   icon: 'search',
                 ),
-                if (callEnabled &&
-                    callController != null &&
-                    peerUserId.isNotEmpty) ...[
-                  const ui.FlareConversationHeaderAction(
-                    id: 'audioCall',
-                    label: 'Audio call',
-                    icon: 'phone',
-                  ),
-                  const ui.FlareConversationHeaderAction(
-                    id: 'videoCall',
-                    label: 'Video call',
-                    icon: 'video',
-                  ),
-                ],
                 ui.FlareConversationHeaderAction(
                   id: 'sdk',
                   label: chat.sdkMessageType,
@@ -1989,23 +1971,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with RouteAware {
                   .firstOrNull;
               if (own != null && own.serverId.isNotEmpty) {
                 await outbound.chatRecall(_cid, own.serverId);
-              }
-            case 'audioCall':
-            case 'videoCall':
-              try {
-                await callController?.start(
-                  StartCallInput(
-                    conversationId: _cid,
-                    peerUserId: peerUserId,
-                    withVideo: action.id == 'videoCall',
-                  ),
-                );
-              } catch (error) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('$error')));
-                }
               }
           }
         },

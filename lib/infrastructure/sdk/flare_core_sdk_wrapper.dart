@@ -307,10 +307,6 @@ final class SdkWrapper {
     return _client.capabilities.revokeCapability(request);
   }
 
-  Future<void> sendCallSignal(Map<String, Object?> request) {
-    return _client.capabilities.sendCallSignal(request);
-  }
-
   Future<List<Map<String, Object?>>> listMessageBuildOperations() async {
     final response = await _client.messageBuilder
         .listSupportedBuildOperations();
